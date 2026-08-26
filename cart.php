@@ -1,91 +1,94 @@
 <?php
 session_start();
-require_once 'config/database.php';
 
-if (isset($_POST['add_to_cart'])) {
-    $product_id = $_POST['product_id'];
-    $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ?");
-    $stmt->execute([$product_id]);
-    $product = $stmt->fetch();
-
-    if ($product) {
-        if (!isset($_SESSION['cart'])) {
-            $_SESSION['cart'] = [];
-        }
-        if (isset($_SESSION['cart'][$product_id])) {
-            $_SESSION['cart'][$product_id]['qty'] += 1;
-        } else {
-            $_SESSION['cart'][$product_id] = [
-                'title' => $product['title'],
-                'price' => $product['price'],
-                'qty' => 1
-            ];
-        }
-        $msg = "কার্টে যোগ করা হয়েছে!";
-    }
+if (isset($_GET['action']) && $_GET['action'] == 'remove') {
+    $id = (int)$_GET['id'];
+    unset($_SESSION['cart'][$id]);
+    header('Location: cart.php');
+    exit;
 }
 
-$stmt = $pdo->query("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id ORDER BY p.id DESC");
-$products = $stmt->fetchAll();
+$cart = $_SESSION['cart'] ?? [];
+$total = 0;
+foreach($cart as $item) {
+    $total += $item['price'] * $item['qty'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
-    <title>শুভ্রতা - Shuvrota E-Commerce</title>
+    <title>শপিং কার্ট - শুভ্রতা</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .whatsapp-float {
-            position: fixed; bottom: 20px; right: 20px;
-            background: #25d366; color: white; border-radius: 50px;
-            padding: 10px 20px; font-weight: bold; text-decoration: none; box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container">
-    <a class="navbar-brand fw-bold" href="index.php">🛍️ শুভ্রতা (Shuvrota)</a>
-    <div>
-        <a href="track.php" class="btn btn-outline-info me-2"><i class="fa-solid fa-truck"></i> ট্র্যাকিং</a>
-        <a href="cart.php" class="btn btn-outline-light"><i class="fa-solid fa-cart-shopping"></i> কার্ট (<?= isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0 ?>)</a>
+<div class="container my-5" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold"><i class="fa-solid fa-bag-shopping me-2"></i>আপনার শপিং কার্ট</h2>
+        <a href="index.php" class="btn btn-outline-secondary rounded-pill"><i class="fa-solid fa-arrow-left me-1"></i> আরো কেনাকাটা করুন</a>
     </div>
-  </div>
-</nav>
 
-<div class="container my-5">
-    <?php if(isset($msg)): ?>
-        <div class="alert alert-success"><?= $msg ?></div>
-    <?php endif; ?>
-    
-    <h2 class="text-center mb-4">আমাদের কালেকশন</h2>
-    <div class="row g-4">
-        <?php foreach($products as $product): ?>
-            <div class="col-md-4">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body">
-                        <span class="badge bg-secondary mb-2"><?= htmlspecialchars($product['category_name']) ?></span>
-                        <h5 class="card-title"><?= htmlspecialchars($product['title']) ?></h5>
-                        <p class="card-text text-muted"><?= htmlspecialchars($product['description']) ?></p>
-                        <h6 class="text-primary fw-bold">৳ <?= number_format($product['price'], 2) ?></h6>
-                    </div>
-                    <div class="card-footer bg-white border-top-0">
-                        <form method="POST">
-                            <input type="hidden" name="product_id" value="<?= $product['id'] ?>">
-                            <button type="submit" name="add_to_cart" class="btn btn-dark w-100"><i class="fa-solid fa-cart-plus"></i> কার্টে যোগ করুন</button>
-                        </form>
-                    </div>
-                </div>
+    <?php if(empty($cart)): ?>
+        <div class="card p-5 text-center shadow-sm rounded-4">
+            <i class="fa-solid fa-cart-flatbed fs-1 text-muted mb-3"></i>
+            <h4 class="text-muted">আপনার কার্ট খালি!</h4>
+            <a href="index.php" class="btn btn-danger rounded-pill mt-3 align-self-center px-4">শপিং শুরু করুন</a>
+        </div>
+    <?php else: ?>
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="ps-4">পণ্য</th>
+                            <th>দাম</th>
+                            <th>পরিমাণ</th>
+                            <th>মোট</th>
+                            <th class="text-center">মুছুন</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($cart as $id => $item): ?>
+                            <?php 
+                                $img_path = (strpos($item['image'], 'http') === 0) ? $item['image'] : 'uploads/' . $item['image'];
+                            ?>
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <img src="<?= htmlspecialchars($img_path) ?>" width="60" height="60" class="rounded object-fit-cover">
+                                        <span class="fw-semibold"><?= htmlspecialchars($item['title']) ?></span>
+                                    </div>
+                                </td>
+                                <td>৳ <?= number_format($item['price'], 2) ?></td>
+                                <td><span class="badge bg-light text-dark border px-3 py-2 fs-6"><?= $item['qty'] ?></span></td>
+                                <td class="fw-bold text-danger">৳ <?= number_format($item['price'] * $item['qty'], 2) ?></td>
+                                <td class="text-center">
+                                    <a href="cart.php?action=remove&id=<?= $id ?>" class="btn btn-sm btn-outline-danger rounded-circle"><i class="fa-solid fa-trash-can"></i></a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
-        <?php endforeach; ?>
-    </div>
+        </div>
+
+        <div class="card p-4 border-0 shadow-sm rounded-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="fs-5 text-muted">মোট প্রোডাক্ট বিল:</span>
+                <span class="fs-4 fw-bold text-dark">৳ <?= number_format($total, 2) ?></span>
+            </div>
+            <hr>
+            <div class="d-flex justify-content-end">
+                <a href="checkout.php" class="btn btn-success btn-lg rounded-pill px-5 fw-bold shadow"><i class="fa-solid fa-credit-card me-2"></i>চেকআউট ও অর্ডার করুন</a>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>
 
-<a href="https://wa.me/8801700000000" class="whatsapp-float" target="_blank">
-    <i class="fa-brands fa-whatsapp"></i> হোয়াটসঅ্যাপ সাপোর্ট
-</a>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/main.js"></script>
 </body>
 </html>

@@ -1,42 +1,46 @@
-<?php
-require_once 'config/database.php';
-$order = null;
-if (isset($_GET['code_or_phone'])) {
-    $search = $_GET['code_or_phone'];
-    $stmt = $pdo->prepare("SELECT * FROM orders WHERE order_code = ? OR phone = ? ORDER BY id DESC LIMIT 1");
-    $stmt->execute([$search, $search]);
-    $order = $stmt->fetch();
-}
-?>
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <title>অর্ডার ট্র্যাকিং - শুভ্রতা</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+CREATE DATABASE IF NOT EXISTS `shuvrota_db` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `shuvrota_db`;
 
-<div class="container my-5">
-    <h2>অর্ডার ট্র্যাকিং</h2>
-    <form method="GET" class="my-4">
-        <div class="input-group">
-            <input type="text" name="code_or_phone" class="form-control" placeholder="অর্ডার আইডি (যেমন: SHV1234) অথবা ফোন নম্বর দিন" required>
-            <button class="btn btn-primary" type="submit">খুঁজুন</button>
-        </div>
-    </form>
+DROP TABLE IF EXISTS `orders`;
+DROP TABLE IF EXISTS `products`;
+DROP TABLE IF EXISTS `categories`;
 
-    <?php if($order): ?>
-        <div class="card p-4 border-info">
-            <h5>অর্ডার কোড: <?= $order['order_code'] ?></h5>
-            <p>কাস্টমার নাম: <?= htmlspecialchars($order['customer_name']) ?></p>
-            <p>মোট বিল: ৳ <?= number_format($order['total_amount'], 2) ?></p>
-            <p>বর্তমান স্ট্যাটাস: <span class="badge bg-warning text-dark"><?= $order['status'] ?></span></p>
-        </div>
-    <?php elseif(isset($_GET['code_or_phone'])): ?>
-        <div class="alert alert-danger">কোনো অর্ডার খুঁজে পাওয়া যায়নি।</div>
-    <?php endif; ?>
-</div>
+CREATE TABLE `categories` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(100) NOT NULL,
+  `slug` VARCHAR(100) NOT NULL
+);
 
-</body>
-</html>
+CREATE TABLE `products` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `category_id` INT,
+  `title` VARCHAR(255) NOT NULL,
+  `price` DECIMAL(10,2) NOT NULL,
+  `image` VARCHAR(255) DEFAULT 'default.jpg',
+  `description` TEXT,
+  `stock` INT DEFAULT 10,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE SET NULL
+);
+
+CREATE TABLE `orders` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `order_code` VARCHAR(20) NOT NULL UNIQUE,
+  `customer_name` VARCHAR(100) NOT NULL,
+  `phone` VARCHAR(20) NOT NULL,
+  `address` TEXT NOT NULL,
+  `delivery_area` ENUM('inside_dhaka', 'outside_dhaka') DEFAULT 'inside_dhaka',
+  `delivery_charge` DECIMAL(10,2) DEFAULT 80.00,
+  `total_amount` DECIMAL(10,2) NOT NULL,
+  `payment_method` ENUM('cod', 'bkash', 'nagad') DEFAULT 'cod',
+  `transaction_id` VARCHAR(50) DEFAULT NULL,
+  `status` ENUM('New', 'Processing', 'Delivered', 'Cancelled') DEFAULT 'New',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO `categories` (`id`, `name`, `slug`) VALUES
+(1, 'রেডি-টু-ওয়্যার শাড়ি', 'ready-saree'),
+(2, 'কুর্তি ও সালোয়ার কামিজ', 'kurti-salwar');
+UPDATE products 
+SET image = 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=600&q=80' 
+WHERE id IN (3, 4);
