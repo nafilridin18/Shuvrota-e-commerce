@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // নোটিফিকেশন এলার্ট হাইড করা
+    // নোটিফিকেশন অ্যালার্ট স্বয়ংক্রিয়ভাবে বন্ধ হওয়া
     const alerts = document.querySelectorAll('.alert-dismissible');
     alerts.forEach(function(alert) {
         setTimeout(function() {
@@ -8,8 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 4000);
     });
 
-    // চেকআউট ফর্মে ফোন নম্বর ভ্যালিডেশন
-    const checkoutForm = document.querySelector('form[action="checkout.php"]');
+    // চেকআউট ফর্ম মোবাইল নম্বর ভ্যালিডেশন
+    const checkoutForm = document.querySelector('#checkoutForm');
     if(checkoutForm) {
         checkoutForm.addEventListener('submit', function(e) {
             const phoneInput = document.querySelector('input[name="phone"]');
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if(!phoneRegex.test(phoneInput.value)) {
                 e.preventDefault();
-                alert('দয়া করে সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন (যেমন: 01712345678)');
+                alert('দয়া করে একটি সঠিক ১১ ডিজিটের বাংলাদেশী মোবাইল নম্বর দিন (যেমন: 01712345678)');
             }
         });
     }

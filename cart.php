@@ -2,16 +2,16 @@
 session_start();
 
 if (isset($_GET['action']) && $_GET['action'] == 'remove') {
-    $id = (int)$_GET['id'];
-    unset($_SESSION['cart'][$id]);
+    $key = $_GET['key'];
+    unset($_SESSION['cart'][$key]);
     header('Location: cart.php');
     exit;
 }
 
 $cart = $_SESSION['cart'] ?? [];
-$total = 0;
+$subtotal = 0;
 foreach($cart as $item) {
-    $total += $item['price'] * $item['qty'];
+    $subtotal += $item['price'] * $item['qty'];
 }
 ?>
 <!DOCTYPE html>
@@ -28,14 +28,13 @@ foreach($cart as $item) {
 <div class="container my-5" style="max-width: 900px;">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold"><i class="fa-solid fa-bag-shopping me-2"></i>আপনার শপিং কার্ট</h2>
-        <a href="index.php" class="btn btn-outline-secondary rounded-pill"><i class="fa-solid fa-arrow-left me-1"></i> আরো কেনাকাটা করুন</a>
+        <a href="index.php" class="btn btn-outline-secondary rounded-pill"><i class="fa-solid fa-arrow-left me-1"></i> কেনাকাটা চালিয়ে যান</a>
     </div>
 
     <?php if(empty($cart)): ?>
         <div class="card p-5 text-center shadow-sm rounded-4">
-            <i class="fa-solid fa-cart-flatbed fs-1 text-muted mb-3"></i>
-            <h4 class="text-muted">আপনার কার্ট খালি!</h4>
-            <a href="index.php" class="btn btn-danger rounded-pill mt-3 align-self-center px-4">শপিং শুরু করুন</a>
+            <h4 class="text-muted mb-3">আপনার কার্ট খালি!</h4>
+            <a href="index.php" class="btn btn-danger rounded-pill align-self-center px-4">শপিং শুরু করুন</a>
         </div>
     <?php else: ?>
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
@@ -44,6 +43,7 @@ foreach($cart as $item) {
                     <thead class="table-dark">
                         <tr>
                             <th class="ps-4">পণ্য</th>
+                            <th>সাইজ/কালার</th>
                             <th>দাম</th>
                             <th>পরিমাণ</th>
                             <th>মোট</th>
@@ -51,22 +51,23 @@ foreach($cart as $item) {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach($cart as $id => $item): ?>
+                        <?php foreach($cart as $key => $item): ?>
                             <?php 
-                                $img_path = (strpos($item['image'], 'http') === 0) ? $item['image'] : 'uploads/' . $item['image'];
+                                $img_src = (strpos($item['image'], 'http') === 0) ? $item['image'] : 'uploads/' . $item['image'];
                             ?>
                             <tr>
                                 <td class="ps-4">
                                     <div class="d-flex align-items-center gap-3">
-                                        <img src="<?= htmlspecialchars($img_path) ?>" width="60" height="60" class="rounded object-fit-cover">
+                                        <img src="<?= htmlspecialchars($img_src) ?>" width="50" height="50" class="rounded object-fit-cover">
                                         <span class="fw-semibold"><?= htmlspecialchars($item['title']) ?></span>
                                     </div>
                                 </td>
+                                <td><span class="badge bg-light text-dark border"><?= $item['size'] ?> / <?= $item['color'] ?></span></td>
                                 <td>৳ <?= number_format($item['price'], 2) ?></td>
-                                <td><span class="badge bg-light text-dark border px-3 py-2 fs-6"><?= $item['qty'] ?></span></td>
+                                <td><?= $item['qty'] ?></td>
                                 <td class="fw-bold text-danger">৳ <?= number_format($item['price'] * $item['qty'], 2) ?></td>
                                 <td class="text-center">
-                                    <a href="cart.php?action=remove&id=<?= $id ?>" class="btn btn-sm btn-outline-danger rounded-circle"><i class="fa-solid fa-trash-can"></i></a>
+                                    <a href="cart.php?action=remove&key=<?= $key ?>" class="btn btn-sm btn-outline-danger rounded-circle"><i class="fa-solid fa-trash-can"></i></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -77,12 +78,12 @@ foreach($cart as $item) {
 
         <div class="card p-4 border-0 shadow-sm rounded-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="fs-5 text-muted">মোট প্রোডাক্ট বিল:</span>
-                <span class="fs-4 fw-bold text-dark">৳ <?= number_format($total, 2) ?></span>
+                <span class="fs-5 text-muted">পণ্যের মোট দাম:</span>
+                <span class="fs-4 fw-bold text-dark">৳ <?= number_format($subtotal, 2) ?></span>
             </div>
             <hr>
             <div class="d-flex justify-content-end">
-                <a href="checkout.php" class="btn btn-success btn-lg rounded-pill px-5 fw-bold shadow"><i class="fa-solid fa-credit-card me-2"></i>চেকআউট ও অর্ডার করুন</a>
+                <a href="checkout.php" class="btn btn-success btn-lg rounded-pill px-5 fw-bold shadow">চেকআউট করুন</a>
             </div>
         </div>
     <?php endif; ?>

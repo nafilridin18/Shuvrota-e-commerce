@@ -1,4 +1,6 @@
 <?php
+// config/database.php
+
 $host = '127.0.0.1';
 $port = '3307';
 $db   = 'shuvrota_db';
@@ -16,6 +18,6 @@ $options = [
 try {
      $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (\PDOException $e) {
-     throw new \PDOException($e->getMessage(), (int)$e->getCode());
+     die("Database connection failed: " . $e->getMessage());
 }
 ?>
