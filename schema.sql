@@ -587,6 +587,12 @@ INSERT INTO settings (setting_key, setting_value) VALUES
     ('whatsapp_number', ''),
     ('currency_symbol', '৳');
 
+INSERT INTO `categories` (`name`, `slug`, `is_active`) VALUES
+('Saree', 'saree', 1),
+('Kurti', 'kurti', 1),
+('Crafts', 'crafts', 1);
+
+
 -- =====================================================================
 -- USEFUL VIEW: quick sales dashboard base (daily/monthly report feature)
 -- =====================================================================
