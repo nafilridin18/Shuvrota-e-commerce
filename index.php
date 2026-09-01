@@ -17,7 +17,7 @@ if (isset($_POST['add_to_cart'])) {
         $img_stmt = $pdo->prepare("SELECT image_path FROM product_images WHERE product_id = ? ORDER BY is_primary DESC LIMIT 1");
         $img_stmt->execute([$product_id]);
         $img = $img_stmt->fetch();
-        $image_path = $img ? $img['image_path'] : 'default.jpg';
+        $image_path = $img ? $img['image_path'] : '';
 
         $cart_key = $product_id . '_' . $size . '_' . $color;
 
@@ -72,16 +72,25 @@ include 'includes/header.php';
     <div class="row g-4">
         <?php foreach($products as $p): ?>
             <?php 
-                $img = $p['primary_image'] ?? 'default.jpg';
-                $img_src = (strpos($img, 'http') === 0) ? $img : 'uploads/' . $img;
+                $img = $p['primary_image'] ?? '';
+                if (!empty($img) && file_exists('uploads/' . $img)) {
+                    $img_src = 'uploads/' . $img;
+                } elseif (!empty($img) && strpos($img, 'http') === 0) {
+                    $img_src = $img;
+                } else {
+                    $img_src = 'https://dummyimage.com/300x300/e0e0e0/000000.png&text=No+Image';
+                }
             ?>
             <div class="col-md-6 col-lg-3">
                 <div class="card card-product h-100 shadow-sm border-0">
-                    <img src="<?= htmlspecialchars($img_src) ?>" class="card-img-top product-img" alt="<?= htmlspecialchars($p['name']) ?>">
+                    <a href="product-details.php?id=<?= $p['id'] ?>">
+                        <img src="<?= htmlspecialchars($img_src) ?>" class="card-img-top product-img" alt="<?= htmlspecialchars($p['name']) ?>" style="height: 250px; object-fit: cover;">
+                    </a>
                     <div class="card-body d-flex flex-column">
-                        <span class="badge badge-cat align-self-start mb-2 px-2 py-1 rounded"><?= htmlspecialchars($p['category_name']) ?></span>
-                        <h5 class="card-title text-dark fw-bold h6"><?= htmlspecialchars($p['name']) ?></h5>
-                        <p class="card-text text-muted small flex-grow-1"><?= htmlspecialchars($p['short_description']) ?></p>
+                        <span class="badge badge-cat align-self-start mb-2 px-2 py-1 rounded"><?= htmlspecialchars($p['category_name'] ?? 'General') ?></span>
+                        <a href="product-details.php?id=<?= $p['id'] ?>" class="text-decoration-none">
+                            <h5 class="card-title text-dark fw-bold h6"><?= htmlspecialchars($p['name']) ?></h5>
+                        </a>
                         
                         <div class="mt-2 mb-3">
                             <span class="fs-5 fw-bold text-danger">৳ <?= number_format($p['discount_price'] ?? $p['price'], 2) ?></span>
