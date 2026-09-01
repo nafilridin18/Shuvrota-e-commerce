@@ -2,10 +2,10 @@
 // config/database.php
 
 $host = '127.0.0.1';
-$port = '3307';
+$port = '3307'; // XAMPP Control Panel অনুযায়ী Port 3307 সেট করা হয়েছে
 $db   = 'shuvrota_db';
 $user = 'root';
-$pass = '';
+$pass = ''; // সাধারণত ফাঁকা থাকে, কাজ না করলে 'root' ট্রাই করো
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
@@ -18,6 +18,6 @@ $options = [
 try {
      $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (\PDOException $e) {
-     die("Database connection failed: " . $e->getMessage());
+     die("Database Connection Failed: " . $e->getMessage());
 }
 ?>

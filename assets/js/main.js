@@ -1,24 +1,44 @@
+// assets/js/main.js
+
+function applyLanguage(lang) {
+    localStorage.setItem('shuvrota_lang', lang);
+    const langToggleBtn = document.getElementById('langToggleBtn');
+
+    if (lang === 'en') {
+        document.body.classList.remove('lang-bn-mode');
+        document.body.classList.add('lang-en-mode');
+        if (langToggleBtn) langToggleBtn.innerText = 'বাংলা';
+    } else {
+        document.body.classList.remove('lang-en-mode');
+        document.body.classList.add('lang-bn-mode');
+        if (langToggleBtn) langToggleBtn.innerText = 'English';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    // নোটিফিকেশন অ্যালার্ট স্বয়ংক্রিয়ভাবে বন্ধ হওয়া
+    // Set initial language from LocalStorage
+    const currentLang = localStorage.getItem('shuvrota_lang') || 'bn';
+    applyLanguage(currentLang);
+
+    // Event Listener for Language Toggle Button
+    const langToggleBtn = document.getElementById('langToggleBtn');
+    if (langToggleBtn) {
+        langToggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const activeLang = localStorage.getItem('shuvrota_lang') || 'bn';
+            const newLang = activeLang === 'bn' ? 'en' : 'bn';
+            applyLanguage(newLang);
+        });
+    }
+
+    // Auto dismissal of Bootstrap Alerts
     const alerts = document.querySelectorAll('.alert-dismissible');
     alerts.forEach(function(alert) {
         setTimeout(function() {
-            const bsAlert = new bootstrap.Alert(alert);
-            bsAlert.close();
+            if (typeof bootstrap !== 'undefined') {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
         }, 4000);
     });
-
-    // চেকআউট ফর্ম মোবাইল নম্বর ভ্যালিডেশন
-    const checkoutForm = document.querySelector('#checkoutForm');
-    if(checkoutForm) {
-        checkoutForm.addEventListener('submit', function(e) {
-            const phoneInput = document.querySelector('input[name="phone"]');
-            const phoneRegex = /^01[3-9]\d{8}$/;
-            
-            if(!phoneRegex.test(phoneInput.value)) {
-                e.preventDefault();
-                alert('দয়া করে একটি সঠিক ১১ ডিজিটের বাংলাদেশী মোবাইল নম্বর দিন (যেমন: 01712345678)');
-            }
-        });
-    }
 });

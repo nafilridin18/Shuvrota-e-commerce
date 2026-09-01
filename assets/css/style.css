@@ -5,21 +5,46 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Bangla597, sans-serif;
     background-color: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
 }
 
 .bg-custom-dark {
     background-color: var(--dark-bg);
 }
 
+.brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.brand-logo svg {
+    width: 40px;
+    height: 40px;
+}
+
+.brand-logo span {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
 .hero-banner {
-    background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
+    background: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)), 
                 url('https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=80');
     background-size: cover;
     background-position: center;
     color: white;
-    padding: 80px 0;
+    padding: 90px 0;
     text-align: center;
 }
 
@@ -52,30 +77,24 @@ body {
     color: white;
 }
 
-.badge-cat {
-    background-color: #fff3cd;
-    color: #856404;
-    font-size: 0.8rem;
-}
-
-.whatsapp-float {
-    position: fixed;
-    bottom: 25px;
-    right: 25px;
-    background: #25d366;
-    color: white;
-    border-radius: 50px;
-    padding: 12px 22px;
-    font-weight: bold;
+.footer-link {
+    color: #ccc;
     text-decoration: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    transition: color 0.2s;
 }
 
-.whatsapp-float:hover {
-    background: #1eb954;
-    color: white;
+.footer-link:hover {
+    color: var(--accent-color);
+}
+
+.lang-bn, .lang-en {
+    display: inline;
+}
+
+body.lang-en-mode .lang-bn {
+    display: none !important;
+}
+
+body.lang-bn-mode .lang-en {
+    display: none !important;
 }
