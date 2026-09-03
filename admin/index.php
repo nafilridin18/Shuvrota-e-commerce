@@ -1,18 +1,18 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once 'auth_check.php';
 require_once '../config/database.php';
 
 $message = $_SESSION['msg'] ?? '';
 unset($_SESSION['msg']);
 
-// Fetch All Orders with Items & Customer Details
-$orders_sql = "SELECT o.*, da.area_name 
-               FROM orders o 
-               LEFT JOIN delivery_areas da ON o.shipping_area_id = da.id 
-               ORDER BY o.id DESC";
-$orders = $pdo->query($orders_sql)->fetchAll();
+$total_orders = $pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+$new_orders   = $pdo->query("SELECT COUNT(*) FROM orders WHERE status = 'new'")->fetchColumn();
+$total_rev    = $pdo->query("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'delivered'")->fetchColumn();
+$low_stock    = $pdo->query("SELECT COUNT(*) FROM products WHERE stock_quantity <= 3 AND status = 'published'")->fetchColumn();
 
-// Fetch All Products
 $products_sql = "SELECT p.*, c.name as category_name, 
        (SELECT image_path FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC LIMIT 1) as primary_image
         FROM products p 
@@ -21,21 +21,59 @@ $products_sql = "SELECT p.*, c.name as category_name,
 $products = $pdo->query($products_sql)->fetchAll();
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Dashboard - Shubhrata</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>এডমিন ড্যাশবোর্ড - শুভ্রতা</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-light">
+    <style>
+        body.lang-bn-mode .lang-en { display: none !important; }
+        body.lang-bn-mode .lang-bn { display: inline-block !important; }
+        body.lang-en-mode .lang-bn { display: none !important; }
+        body.lang-en-mode .lang-en { display: inline-block !important; }
 
-<div class="container my-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-dark"><i class="fa-solid fa-gauge me-2"></i>Admin Dashboard</h2>
-        <div>
-            <a href="add_product.php" class="btn btn-danger"><i class="fa-solid fa-plus me-1"></i> Add New Product</a>
-            <a href="../index.php" class="btn btn-outline-dark ms-2" target="_blank"><i class="fa-solid fa-globe me-1"></i> View Website</a>
+        .order-column { background: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); min-height: 400px; }
+        .order-item-card { background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 12px; transition: 0.2s; }
+        .order-item-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="bg-light lang-bn-mode">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold text-danger" href="index.php"><i class="fa-solid fa-gauge me-2"></i><span class="lang-bn">শুভ্রতা এডমিন</span><span class="lang-en">Shuvrota Admin</span></a>
+        
+        <div class="d-flex align-items-center gap-3 ms-auto">
+            <span class="text-light small d-none d-md-inline">
+                <span class="lang-bn">স্বাগতম, <strong><?= htmlspecialchars($_SESSION['admin_name'] ?? 'Admin') ?></strong></span>
+                <span class="lang-en">Welcome, <strong><?= htmlspecialchars($_SESSION['admin_name'] ?? 'Admin') ?></strong></span>
+            </span>
+
+            <div class="dropdown">
+                <a class="btn btn-sm btn-secondary px-3 dropdown-toggle rounded-pill" href="#" role="button" data-bs-toggle="dropdown" id="currentLangText">বাংলা</a>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                    <li><button type="button" class="dropdown-item small" onclick="switchLanguage('bn')">বাংলা (BN)</button></li>
+                    <li><button type="button" class="dropdown-item small" onclick="switchLanguage('en')">English (EN)</button></li>
+                </ul>
+            </div>
+
+            <a href="logout.php" class="btn btn-outline-danger btn-sm rounded-pill"><i class="fa-solid fa-right-from-bracket me-1"></i> <span class="lang-bn">লগআউট</span><span class="lang-en">Logout</span></a>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid px-4 my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h2 class="fw-bold text-dark mb-0">
+            <span class="lang-bn">ড্যাশবোর্ড ওভারভিউ</span><span class="lang-en">Dashboard Overview</span>
+        </h2>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="add_product.php" class="btn btn-danger"><i class="fa-solid fa-plus me-1"></i> <span class="lang-bn">নতুন প্রোডাক্ট যোগ করুন</span><span class="lang-en">Add New Product</span></a>
+            <a href="coupons.php" class="btn btn-secondary"><i class="fa-solid fa-ticket me-1"></i> <span class="lang-bn">কুপন</span><span class="lang-en">Coupons</span></a>
+            <a href="banner_settings.php" class="btn btn-warning text-dark fw-bold"><i class="fa-solid fa-image me-1"></i> <span class="lang-bn">ব্যানার ও কালেকশন ম্যানেজ</span><span class="lang-en">Manage Banners</span></a>
+            <a href="../index.php" class="btn btn-outline-dark" target="_blank"><i class="fa-solid fa-globe me-1"></i> <span class="lang-bn">ওয়েবসাইট দেখুন</span><span class="lang-en">Visit Website</span></a>
         </div>
     </div>
 
@@ -46,94 +84,131 @@ $products = $pdo->query($products_sql)->fetchAll();
         </div>
     <?php endif; ?>
 
-    <!-- Section 1: Customer Orders Record -->
-    <div class="card border-0 shadow-sm rounded-4 mb-5">
-        <div class="card-header bg-dark text-white p-3 rounded-top-4 d-flex justify-content-between align-items-center">
-            <h4 class="mb-0 fs-5"><i class="fa-solid fa-cart-shopping me-2"></i>Customer Orders Record</h4>
-            <span class="badge bg-danger fs-6"><?= count($orders) ?> Total Orders</span>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-primary text-white p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-white-50"><span class="lang-bn">সর্বমোট অর্ডার</span><span class="lang-en">Total Orders</span></small>
+                        <h3 class="fw-bold mb-0"><?= $total_orders ?></h3>
+                    </div>
+                    <i class="fa-solid fa-cart-shopping fs-1 opacity-50"></i>
+                </div>
+            </div>
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-secondary">
-                        <tr>
-                            <th class="ps-3">Order Number</th>
-                            <th>Customer Info</th>
-                            <th>Items Ordered</th>
-                            <th>Total Amount</th>
-                            <th>Status</th>
-                            <th>Order Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if(empty($orders)): ?>
-                            <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">No orders placed yet. Test checkout to generate records.</td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach($orders as $ord): ?>
-                                <?php
-                                    // Fetch items for this order
-                                    $item_stmt = $pdo->prepare("SELECT * FROM order_items WHERE order_id = ?");
-                                    $item_stmt->execute([$ord['id']]);
-                                    $items = $item_stmt->fetchAll();
-                                ?>
-                                <tr>
-                                    <td class="ps-3 fw-bold text-danger"><?= htmlspecialchars($ord['order_number']) ?></td>
-                                    <td>
-                                        <strong><?= htmlspecialchars($ord['shipping_name']) ?></strong><br>
-                                        <small class="text-muted"><i class="fa-solid fa-phone me-1"></i><?= htmlspecialchars($ord['shipping_phone']) ?></small><br>
-                                        <small class="text-muted"><i class="fa-solid fa-location-dot me-1"></i><?= htmlspecialchars($ord['shipping_address']) ?> (<?= htmlspecialchars($ord['area_name'] ?? 'General') ?>)</small>
-                                    </td>
-                                    <td>
-                                        <ul class="list-unstyled mb-0 small">
-                                            <?php foreach($items as $it): ?>
-                                                <li>• <?= htmlspecialchars($it['product_name']) ?> (<?= htmlspecialchars($it['size']) ?>/<?= htmlspecialchars($it['color']) ?>) x <?= $it['quantity'] ?></li>
-                                            <?php endforeach; ?>
-                                        </ul>
-                                    </td>
-                                    <td class="fw-bold text-success">৳ <?= number_format($ord['total_amount'], 2) ?></td>
-                                    <td>
-                                        <?php if($ord['status'] === 'new'): ?>
-                                            <span class="badge bg-warning text-dark">New</span>
-                                        <?php elseif($ord['status'] === 'delivered'): ?>
-                                            <span class="badge bg-success">Delivered</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-secondary"><?= htmlspecialchars($ord['status']) ?></span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><small class="text-muted"><?= date('d M Y, h:i A', strtotime($ord['created_at'])) ?></small></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-warning text-dark p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-dark-50"><span class="lang-bn">নতুন অর্ডার</span><span class="lang-en">New Orders</span></small>
+                        <h3 class="fw-bold mb-0"><?= $new_orders ?></h3>
+                    </div>
+                    <i class="fa-solid fa-clock fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-success text-white p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-white-50"><span class="lang-bn">ডেলিভারড আয়</span><span class="lang-en">Delivered Revenue</span></small>
+                        <h3 class="fw-bold mb-0">৳ <?= number_format($total_rev, 2) ?></h3>
+                    </div>
+                    <i class="fa-solid fa-bangladeshi-taka-sign fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-danger text-white p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-white-50"><span class="lang-bn">কম স্টক প্রোডাক্ট</span><span class="lang-en">Low Stock Products</span></small>
+                        <h3 class="fw-bold mb-0"><?= $low_stock ?></h3>
+                    </div>
+                    <i class="fa-solid fa-triangle-exclamation fs-1 opacity-50"></i>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Section 2: Product Management -->
+    <?php
+    $statuses = ['new' => 'New', 'processing' => 'Processing', 'shipped' => 'Shipped', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'];
+    $status_colors = ['new' => 'warning', 'processing' => 'info', 'shipped' => 'primary', 'delivered' => 'success', 'cancelled' => 'danger'];
+    ?>
+    <h4 class="fw-bold mb-3"><i class="fa-solid fa-columns me-2"></i><span class="lang-bn">গ্রাহকদের অর্ডারের কলামভিত্তিক তালিকা</span><span class="lang-en">Customer Orders Pipeline</span></h4>
+    <div class="row g-3 mb-5">
+        <?php foreach($statuses as $st_key => $st_name): ?>
+            <?php
+                $st_stmt = $pdo->prepare("SELECT o.*, da.area_name FROM orders o LEFT JOIN delivery_areas da ON o.shipping_area_id = da.id WHERE o.status = ? ORDER BY o.id DESC");
+                $st_stmt->execute([$st_key]);
+                $st_orders = $st_stmt->fetchAll();
+            ?>
+            <div class="col">
+                <div class="order-column border-top border-<?= $status_colors[$st_key] ?> border-4">
+                    <h6 class="fw-bold text-<?= $status_colors[$st_key] ?> mb-3 d-flex justify-content-between align-items-center">
+                        <span><?= $st_name ?></span>
+                        <span class="badge bg-<?= $status_colors[$st_key] ?> <?= in_array($st_key, ['new', 'processing']) ? 'text-dark' : 'text-white' ?>"><?= count($st_orders) ?></span>
+                    </h6>
+                    <div class="orders-list">
+                        <?php if(!empty($st_orders)): ?>
+                            <?php foreach($st_orders as $ord): ?>
+                                <?php
+                                    $item_stmt = $pdo->prepare("SELECT * FROM order_items WHERE order_id = ?");
+                                    $item_stmt->execute([$ord['id']]);
+                                    $items = $item_stmt->fetchAll();
+                                ?>
+                                <div class="order-item-card">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-bold text-danger small"><?= htmlspecialchars($ord['order_number']) ?></span>
+                                        <span class="text-success fw-bold small">৳ <?= number_format($ord['total_amount'], 2) ?></span>
+                                    </div>
+                                    <div class="fw-semibold small text-dark mb-1"><?= htmlspecialchars($ord['shipping_name'] ?? $ord['name'] ?? 'N/A') ?></div>
+                                    <div class="text-muted small mb-2"><i class="fa-solid fa-phone me-1"></i><?= htmlspecialchars($ord['shipping_phone'] ?? $ord['phone'] ?? 'N/A') ?></div>
+                                    
+                                    <div class="bg-light p-1 rounded small mb-2 text-muted" style="font-size: 11px;">
+                                        <?php foreach($items as $it): ?>
+                                            <div>• <?= htmlspecialchars($it['product_name']) ?> (<?= $it['quantity'] ?>x)</div>
+                                        <?php endforeach; ?>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between align-items-center mt-2">
+                                        <small class="text-muted" style="font-size: 10px;"><?= date('d M, h:i A', strtotime($ord['placed_at'] ?? $ord['created_at'])) ?></small>
+                                        <a href="order_details.php?id=<?= $ord['id'] ?>" class="btn btn-sm btn-outline-dark py-0 px-2" style="font-size: 11px;">
+                                            <i class="fa-solid fa-eye"></i> <span class="lang-bn">ডিটেইলস</span><span class="lang-en">Details</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <p class="text-muted small text-center py-4"><span class="lang-bn">কোনো অর্ডার নেই</span><span class="lang-en">No orders</span></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
     <div class="card border-0 shadow-sm rounded-4">
         <div class="card-header bg-dark text-white p-3 rounded-top-4">
-            <h4 class="mb-0 fs-5"><i class="fa-solid fa-boxes-stacked me-2"></i>Product List</h4>
+            <h4 class="mb-0 fs-5"><i class="fa-solid fa-boxes-stacked me-2"></i><span class="lang-bn">প্রোডাক্ট তালিকা</span><span class="lang-en">Product List</span></h4>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-secondary">
                         <tr>
-                            <th class="ps-3">Image</th>
-                            <th>Name</th>
-                            <th>Category</th>
-                            <th>Price</th>
-                            <th>Stock</th>
-                            <th class="text-center">Action</th>
+                            <th class="ps-3"><span class="lang-bn">ছবি</span><span class="lang-en">Image</span></th>
+                            <th><span class="lang-bn">নাম</span><span class="lang-en">Name</span></th>
+                            <th><span class="lang-bn">ক্যাটাগরি</span><span class="lang-en">Category</span></th>
+                            <th><span class="lang-bn">মূল্য</span><span class="lang-en">Price</span></th>
+                            <th><span class="lang-bn">স্টক</span><span class="lang-en">Stock</span></th>
+                            <th class="text-center"><span class="lang-bn">অ্যাকশন</span><span class="lang-en">Action</span></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if(empty($products)): ?>
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">No products found.</td>
+                                <td colspan="6" class="text-center py-4 text-muted"><span class="lang-bn">কোনো প্রোডাক্ট পাওয়া যায়নি।</span><span class="lang-en">No products found.</span></td>
                             </tr>
                         <?php else: ?>
                             <?php foreach($products as $p): ?>
@@ -145,15 +220,18 @@ $products = $pdo->query($products_sql)->fetchAll();
                                     <td class="ps-3">
                                         <img src="<?= htmlspecialchars($img_src) ?>" width="50" height="50" class="rounded object-fit-cover border">
                                     </td>
-                                    <td class="fw-bold"><?= htmlspecialchars($p['name']) ?></td>
+                                    <td class="fw-bold"><?= htmlspecialchars($p['name_bn'] ?? $p['name']) ?></td>
                                     <td><span class="badge bg-secondary"><?= htmlspecialchars($p['category_name'] ?? 'General') ?></span></td>
                                     <td>৳ <?= number_format($p['discount_price'] ?? $p['price'], 2) ?></td>
                                     <td><?= $p['stock_quantity'] ?></td>
                                     <td class="text-center">
+                                        <a href="edit_product.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-dark me-1">
+                                            <i class="fa-solid fa-pen-to-square"></i> <span class="lang-bn">এডিট</span><span class="lang-en">Edit</span>
+                                        </a>
                                         <a href="delete_product.php?id=<?= $p['id'] ?>" 
                                            class="btn btn-sm btn-outline-danger" 
-                                           onclick="return confirm('Are you sure you want to delete this product?');">
-                                            <i class="fa-solid fa-trash me-1"></i> Delete
+                                           onclick="return confirm('আপনি কি নিশ্চিত যে এই প্রোডাক্টটি মুছে ফেলতে চান?');">
+                                            <i class="fa-solid fa-trash me-1"></i> <span class="lang-bn">ডিলিট</span><span class="lang-en">Delete</span>
                                         </a>
                                     </td>
                                 </tr>
@@ -167,5 +245,26 @@ $products = $pdo->query($products_sql)->fetchAll();
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function switchLanguage(lang) {
+    const body = document.body;
+    if (lang === 'en') {
+        body.classList.remove('lang-bn-mode');
+        body.classList.add('lang-en-mode');
+        document.getElementById('currentLangText').innerText = 'English';
+        localStorage.setItem('adminLang', 'en');
+    } else {
+        body.classList.remove('lang-en-mode');
+        body.classList.add('lang-bn-mode');
+        document.getElementById('currentLangText').innerText = 'বাংলা';
+        localStorage.setItem('adminLang', 'bn');
+    }
+}
+
+window.onload = function() {
+    const savedLang = localStorage.getItem('adminLang') || 'bn';
+    switchLanguage(savedLang);
+};
+</script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 -- =====================================================================
--- SHUVROTA (শুভ্রতা) E-COMMERCE DATABASE SCHEMA
+-- SHUVROTA (শুভ্রতা) E-COMMERCE COMPLETE DATABASE SCHEMA
 -- Stack: MySQL 8.0+ / 5.7+
 -- Engine: InnoDB | Charset: utf8mb4
 -- =====================================================================
@@ -11,7 +11,9 @@ USE shuvrota_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
--- Drop tables if re-running
+-- Drop views & tables if re-running
+DROP VIEW IF EXISTS `v_daily_sales`;
+
 DROP TABLE IF EXISTS `activity_logs`;
 DROP TABLE IF EXISTS `email_logs`;
 DROP TABLE IF EXISTS `sms_logs`;
@@ -70,19 +72,19 @@ CREATE TABLE role_permissions (
 ) ENGINE=InnoDB;
 
 CREATE TABLE admins (
-    id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    role_id            INT UNSIGNED NOT NULL,
-    name               VARCHAR(100) NOT NULL,
-    email              VARCHAR(150) NOT NULL UNIQUE,
-    phone              VARCHAR(20) NULL,
-    password_hash      VARCHAR(255) NOT NULL,
-    two_factor_secret  VARCHAR(255) NULL,
-    two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0,
-    is_active          TINYINT(1) NOT NULL DEFAULT 1,
-    last_login_at      TIMESTAMP NULL,
-    last_login_ip      VARCHAR(45) NULL,
-    created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    role_id              INT UNSIGNED NOT NULL,
+    name                 VARCHAR(100) NOT NULL,
+    email                VARCHAR(150) NOT NULL UNIQUE,
+    phone                VARCHAR(20) NULL,
+    password_hash        VARCHAR(255) NOT NULL,
+    two_factor_secret    VARCHAR(255) NULL,
+    two_factor_enabled   TINYINT(1) NOT NULL DEFAULT 0,
+    is_active            TINYINT(1) NOT NULL DEFAULT 1,
+    last_login_at        TIMESTAMP NULL,
+    last_login_ip        VARCHAR(45) NULL,
+    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (role_id) REFERENCES roles(id)
 ) ENGINE=InnoDB;
 
@@ -121,27 +123,27 @@ CREATE TABLE categories (
 -- =====================================================================
 
 CREATE TABLE products (
-    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    category_id         INT UNSIGNED NOT NULL,
-    name                VARCHAR(200) NOT NULL,
-    name_bn             VARCHAR(255) NULL,
-    slug                VARCHAR(220) NOT NULL UNIQUE,
-    sku                 VARCHAR(50) NOT NULL UNIQUE,
-    short_description   VARCHAR(500) NULL,
-    description         TEXT NULL,
-    price               DECIMAL(10,2) NOT NULL,
-    discount_price      DECIMAL(10,2) NULL,
-    cost_price          DECIMAL(10,2) NULL,
-    stock_quantity      INT NOT NULL DEFAULT 0,
-    is_featured         TINYINT(1) NOT NULL DEFAULT 0,
-    is_new_arrival      TINYINT(1) NOT NULL DEFAULT 0,
-    status              ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
-    meta_title          VARCHAR(200) NULL,
-    meta_description    VARCHAR(300) NULL,
-    views_count         INT UNSIGNED NOT NULL DEFAULT 0,
-    created_by          INT UNSIGNED NULL,
-    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category_id           INT UNSIGNED NOT NULL,
+    name                  VARCHAR(200) NOT NULL,
+    name_bn               VARCHAR(255) NULL,
+    slug                  VARCHAR(220) NOT NULL UNIQUE,
+    sku                   VARCHAR(50) NOT NULL UNIQUE,
+    short_description     VARCHAR(500) NULL,
+    description           TEXT NULL,
+    price                 DECIMAL(10,2) NOT NULL,
+    discount_price        DECIMAL(10,2) NULL,
+    cost_price            DECIMAL(10,2) NULL,
+    stock_quantity        INT NOT NULL DEFAULT 0,
+    is_featured           TINYINT(1) NOT NULL DEFAULT 0,
+    is_new_arrival        TINYINT(1) NOT NULL DEFAULT 0,
+    status                ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
+    meta_title            VARCHAR(200) NULL,
+    meta_description      VARCHAR(300) NULL,
+    views_count           INT UNSIGNED NOT NULL DEFAULT 0,
+    created_by            INT UNSIGNED NULL,
+    created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES categories(id),
     FOREIGN KEY (created_by) REFERENCES admins(id) ON DELETE SET NULL,
     INDEX idx_slug (slug),
@@ -181,17 +183,17 @@ CREATE TABLE product_variants (
 -- =====================================================================
 
 CREATE TABLE customers (
-    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    name              VARCHAR(100) NOT NULL,
-    email             VARCHAR(150) NULL UNIQUE,
-    phone             VARCHAR(20) NOT NULL UNIQUE,
-    password_hash     VARCHAR(255) NULL,
-    is_guest          TINYINT(1) NOT NULL DEFAULT 0,
-    is_active         TINYINT(1) NOT NULL DEFAULT 1,
-    email_verified_at TIMESTAMP NULL,
-    phone_verified_at TIMESTAMP NULL,
-    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name                VARCHAR(100) NOT NULL,
+    email               VARCHAR(150) NULL UNIQUE,
+    phone               VARCHAR(20) NOT NULL UNIQUE,
+    password_hash       VARCHAR(255) NULL,
+    is_guest            TINYINT(1) NOT NULL DEFAULT 0,
+    is_active           TINYINT(1) NOT NULL DEFAULT 1,
+    email_verified_at   TIMESTAMP NULL,
+    phone_verified_at   TIMESTAMP NULL,
+    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_phone (phone)
 ) ENGINE=InnoDB;
 
@@ -250,20 +252,20 @@ CREATE TABLE cart_items (
 -- =====================================================================
 
 CREATE TABLE coupons (
-    id                        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    code                      VARCHAR(50) NOT NULL UNIQUE,
-    type                      ENUM('percentage','fixed') NOT NULL DEFAULT 'percentage',
-    value                     DECIMAL(10,2) NOT NULL,
-    min_order_amount          DECIMAL(10,2) NULL DEFAULT 0,
-    max_discount_amount       DECIMAL(10,2) NULL,
-    usage_limit               INT UNSIGNED NULL,
-    usage_limit_per_customer  INT UNSIGNED NULL DEFAULT 1,
-    used_count                INT UNSIGNED NOT NULL DEFAULT 0,
-    starts_at                 DATETIME NULL,
-    expires_at                DATETIME NULL,
-    is_active                 TINYINT(1) NOT NULL DEFAULT 1,
-    created_by                INT UNSIGNED NULL,
-    created_at                TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id                          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code                        VARCHAR(50) NOT NULL UNIQUE,
+    type                        ENUM('percentage','fixed') NOT NULL DEFAULT 'percentage',
+    value                       DECIMAL(10,2) NOT NULL,
+    min_order_amount            DECIMAL(10,2) NULL DEFAULT 0,
+    max_discount_amount         DECIMAL(10,2) NULL,
+    usage_limit                 INT UNSIGNED NULL,
+    usage_limit_per_customer    INT UNSIGNED NULL DEFAULT 1,
+    used_count                  INT UNSIGNED NOT NULL DEFAULT 0,
+    starts_at                   DATETIME NULL,
+    expires_at                  DATETIME NULL,
+    is_active                   TINYINT(1) NOT NULL DEFAULT 1,
+    created_by                  INT UNSIGNED NULL,
+    created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES admins(id) ON DELETE SET NULL,
     INDEX idx_code (code)
 ) ENGINE=InnoDB;
@@ -273,33 +275,33 @@ CREATE TABLE coupons (
 -- =====================================================================
 
 CREATE TABLE orders (
-    id                  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    order_number        VARCHAR(30) NOT NULL UNIQUE,
-    customer_id         INT UNSIGNED NULL,
-    guest_name          VARCHAR(100) NULL,
-    guest_phone         VARCHAR(20) NULL,
-    guest_email         VARCHAR(150) NULL,
-    shipping_name       VARCHAR(100) NOT NULL,
-    shipping_phone      VARCHAR(20) NOT NULL,
-    shipping_address    VARCHAR(255) NOT NULL,
-    shipping_area_id    INT UNSIGNED NULL,
-    shipping_district   VARCHAR(100) NULL,
-    subtotal            DECIMAL(10,2) NOT NULL,
-    discount_amount     DECIMAL(10,2) NOT NULL DEFAULT 0,
-    delivery_charge     DECIMAL(10,2) NOT NULL DEFAULT 0,
-    total_amount        DECIMAL(10,2) NOT NULL,
-    coupon_id           INT UNSIGNED NULL,
-    payment_method      ENUM('cod') NOT NULL DEFAULT 'cod',
-    payment_status      ENUM('pending','paid','failed') NOT NULL DEFAULT 'pending',
-    status              ENUM('new','processing','shipped','delivered','cancelled','returned') NOT NULL DEFAULT 'new',
-    courier_name        VARCHAR(50) NULL,
-    courier_tracking_id VARCHAR(100) NULL,
-    customer_note       VARCHAR(500) NULL,
-    admin_note          VARCHAR(500) NULL,
-    is_flagged_spam     TINYINT(1) NOT NULL DEFAULT 0,
-    ip_address          VARCHAR(45) NULL,
-    placed_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id                    BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_number          VARCHAR(30) NOT NULL UNIQUE,
+    customer_id           INT UNSIGNED NULL,
+    guest_name            VARCHAR(100) NULL,
+    guest_phone           VARCHAR(20) NULL,
+    guest_email           VARCHAR(150) NULL,
+    shipping_name         VARCHAR(100) NOT NULL,
+    shipping_phone        VARCHAR(20) NOT NULL,
+    shipping_address      VARCHAR(255) NOT NULL,
+    shipping_area_id      INT UNSIGNED NULL,
+    shipping_district     VARCHAR(100) NULL,
+    subtotal              DECIMAL(10,2) NOT NULL,
+    discount_amount       DECIMAL(10,2) NOT NULL DEFAULT 0,
+    delivery_charge       DECIMAL(10,2) NOT NULL DEFAULT 0,
+    total_amount          DECIMAL(10,2) NOT NULL,
+    coupon_id             INT UNSIGNED NULL,
+    payment_method        ENUM('cod') NOT NULL DEFAULT 'cod',
+    payment_status        ENUM('pending','paid','failed') NOT NULL DEFAULT 'pending',
+    status                ENUM('new','processing','shipped','delivered','cancelled','returned') NOT NULL DEFAULT 'new',
+    courier_name          VARCHAR(50) NULL,
+    courier_tracking_id   VARCHAR(100) NULL,
+    customer_note         VARCHAR(500) NULL,
+    admin_note            VARCHAR(500) NULL,
+    is_flagged_spam       TINYINT(1) NOT NULL DEFAULT 0,
+    ip_address            VARCHAR(45) NULL,
+    placed_at             TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
     FOREIGN KEY (shipping_area_id) REFERENCES delivery_areas(id),
     FOREIGN KEY (coupon_id) REFERENCES coupons(id) ON DELETE SET NULL,
@@ -449,13 +451,13 @@ CREATE TABLE purchase_orders (
 ) ENGINE=InnoDB;
 
 CREATE TABLE purchase_order_items (
-    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    purchase_order_id INT UNSIGNED NOT NULL,
-    product_id        INT UNSIGNED NOT NULL,
-    variant_id        INT UNSIGNED NULL,
-    quantity          INT UNSIGNED NOT NULL,
-    unit_cost         DECIMAL(10,2) NOT NULL,
-    line_total        DECIMAL(10,2) NOT NULL,
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    purchase_order_id   INT UNSIGNED NOT NULL,
+    product_id          INT UNSIGNED NOT NULL,
+    variant_id          INT UNSIGNED NULL,
+    quantity            INT UNSIGNED NOT NULL,
+    unit_cost           DECIMAL(10,2) NOT NULL,
+    line_total          DECIMAL(10,2) NOT NULL,
     FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL,
@@ -463,17 +465,17 @@ CREATE TABLE purchase_order_items (
 ) ENGINE=InnoDB;
 
 CREATE TABLE stock_logs (
-    id                BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    product_id        INT UNSIGNED NOT NULL,
-    variant_id        INT UNSIGNED NULL,
-    type              ENUM('purchase','sale','return','manual_adjustment') NOT NULL,
-    quantity_changed  INT NOT NULL,
-    stock_after       INT NULL,
-    reference_id      BIGINT UNSIGNED NULL,
-    reference_type    ENUM('order','purchase_order','manual') NOT NULL DEFAULT 'manual',
-    note              VARCHAR(255) NULL,
-    created_by        INT UNSIGNED NULL,
-    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id                  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    product_id          INT UNSIGNED NOT NULL,
+    variant_id          INT UNSIGNED NULL,
+    type                ENUM('purchase','sale','return','manual_adjustment') NOT NULL,
+    quantity_changed    INT NOT NULL,
+    stock_after         INT NULL,
+    reference_id        BIGINT UNSIGNED NULL,
+    reference_type      ENUM('order','purchase_order','manual') NOT NULL DEFAULT 'manual',
+    note                VARCHAR(255) NULL,
+    created_by          INT UNSIGNED NULL,
+    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
     FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL,
     FOREIGN KEY (created_by) REFERENCES admins(id) ON DELETE SET NULL,
@@ -531,13 +533,13 @@ CREATE TABLE notifications (
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- =====================================================================
--- SEED DATA
+-- SEED DATA (Starter Roles, Permissions, Default Admin & Categories)
 -- =====================================================================
 
-INSERT INTO roles (name, description) VALUES
-    ('super_admin', 'Full access to everything'),
-    ('manager', 'Manage products, orders, coupons - no staff management'),
-    ('staff', 'Order processing and product entry only');
+INSERT INTO roles (id, name, description) VALUES
+    (1, 'super_admin', 'Full access to everything'),
+    (2, 'manager', 'Manage products, orders, coupons - no staff management'),
+    (3, 'staff', 'Order processing and product entry only');
 
 INSERT INTO permissions (name, description) VALUES
     ('products.manage', 'Add/edit/delete products'),
@@ -559,20 +561,28 @@ INSERT INTO role_permissions (role_id, permission_id)
 INSERT INTO role_permissions (role_id, permission_id)
     SELECT 3, id FROM permissions WHERE name IN ('products.manage','orders.manage');
 
+-- Default Super Admin (Email: admin@shuvrota.com / Password: 123456)
+INSERT INTO admins (role_id, name, email, phone, password_hash, is_active) VALUES
+    (1, 'Super Admin', 'admin@shuvrota.com', '01700000000', '123456', 1);
+
 INSERT INTO delivery_areas (area_name, delivery_charge, estimated_days) VALUES
     ('Inside Dhaka', 70.00, '1-2 days'),
     ('Outside Dhaka', 130.00, '2-4 days');
 
 INSERT INTO settings (setting_key, setting_value) VALUES
     ('site_name', 'Shuvrota'),
-    ('admin_notification_email', ''),
+    ('admin_notification_email', 'fariaislam1909@gmail.com'),
     ('whatsapp_number', ''),
     ('currency_symbol', '৳');
 
-INSERT INTO categories (name, slug, is_active) VALUES
-    ('Saree', 'saree', 1),
-    ('Kurti', 'kurti', 1),
-    ('Crafts', 'crafts', 1);
+INSERT INTO categories (name, name_bn, slug, is_active) VALUES
+    ('Saree', 'শাড়ি', 'saree', 1),
+    ('Kurti', 'কুর্তি', 'kurti', 1),
+    ('Crafts', 'হস্তশিল্প', 'crafts', 1);
+
+-- Starter Discount Coupon
+INSERT INTO coupons (code, type, value, min_order_amount, is_active) VALUES
+    ('SHUVRO10', 'percentage', 10.00, 500.00, 1);
 
 -- =====================================================================
 -- VIEW FOR DASHBOARD REPORTING
@@ -585,6 +595,16 @@ SELECT
     SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END)       AS delivered_orders,
     SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END)       AS cancelled_orders,
     SUM(total_amount)                                           AS gross_revenue,
-    SUM(CASE WHEN status = 'delivered' THEN total_amount ELSE 0 END) AS confirmed_revenue
+    SUM(CASE WHEN status = 'delivered' THEN total_amount ELSE 0 END)   AS confirmed_revenue
 FROM orders
 GROUP BY DATE(placed_at);
+
+-- উইশলিস্ট টেবিল তৈরি
+CREATE TABLE IF NOT EXISTS wishlist (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    product_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
