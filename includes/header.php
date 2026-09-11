@@ -1,7 +1,5 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../config/session.php';
 require_once __DIR__ . '/../config/database.php';
 
 // যদি সেশনে আইডি থাকে কিন্তু নাম বা ফোন না থাকে, তবে ডাটাবেজ থেকে নিয়ে সেশনে সেট করে দেব

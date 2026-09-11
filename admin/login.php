@@ -1,7 +1,5 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../config/session.php';
 require_once '../config/database.php';
 
 // ইতোমধ্যে লগইন থাকলে সরাসরি ড্যাশবোর্ডে রিডাইরেক্ট

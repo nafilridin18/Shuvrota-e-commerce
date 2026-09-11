@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/../config/session.php';
 
 // সেশন ডেটা ক্লিয়ার করা
 $_SESSION = array();
