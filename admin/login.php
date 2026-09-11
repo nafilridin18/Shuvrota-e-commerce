@@ -21,8 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$email]);
         $admin = $stmt->fetch();
 
-        // পাসওয়ার্ড যাচাই (এখানে প্লেইন টেক্সট অথবা হ্যাশ উভয়ই কাজ করবে)
-        if ($admin && ($password === $admin['password_hash'] || password_verify($password, $admin['password_hash']))) {
+        // পাসওয়ার্ড যাচাই — কেবলমাত্র bcrypt হ্যাশের বিরুদ্ধে, প্লেইন টেক্সট আর গ্রহণযোগ্য নয়
+        if ($admin && password_verify($password, $admin['password_hash'])) {
             $_SESSION['admin_logged_in'] = true;
             $_SESSION['admin_id']        = $admin['id'];
             $_SESSION['admin_name']      = $admin['name'];
@@ -68,18 +68,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form method="POST" autocomplete="off">
         <div class="mb-3">
             <label class="form-label fw-bold">ইমেইল ঠিকানা</label>
-            <input type="email" name="email" class="form-control" value="admin@shuvrota.com" required>
+            <input type="email" name="email" class="form-control" placeholder="you@example.com" required>
         </div>
         
         <div class="mb-4">
             <label class="form-label fw-bold">পাসওয়ার্ড</label>
             <div class="input-group">
-                <input type="password" id="passwordInput" name="password" class="form-control" placeholder="123456" required>
+                <input type="password" id="passwordInput" name="password" class="form-control" required>
                 <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                     <i class="fa-solid fa-eye" id="toggleIcon"></i>
                 </button>
             </div>
-            <div class="form-text small text-muted mt-1">পাসওয়ার্ড দিন: <strong>123456</strong></div>
         </div>
 
         <button type="submit" class="btn btn-danger w-100 fw-bold py-2 shadow-sm">প্রবেশ করুন</button>
