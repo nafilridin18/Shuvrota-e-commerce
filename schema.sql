@@ -562,8 +562,10 @@ INSERT INTO role_permissions (role_id, permission_id)
     SELECT 3, id FROM permissions WHERE name IN ('products.manage','orders.manage');
 
 -- Default Super Admin (Email: admin@shuvrota.com / Password: 123456)
+-- Default password is 'ChangeMeNow!2026' — log in once, then change it immediately
+-- from the admin panel (or re-run this hash generator with your own password).
 INSERT INTO admins (role_id, name, email, phone, password_hash, is_active) VALUES
-    (1, 'Super Admin', 'admin@shuvrota.com', '01700000000', '123456', 1);
+    (1, 'Super Admin', 'admin@shuvrota.com', '01700000000', '$2b$10$kj6Gie9QPgYRFrne6K6FDOYJyKXoYguCpRuw6uhis38DOAZ2k7hFK', 1);
 
 INSERT INTO delivery_areas (area_name, delivery_charge, estimated_days) VALUES
     ('Inside Dhaka', 70.00, '1-2 days'),
