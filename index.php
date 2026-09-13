@@ -96,200 +96,40 @@ try {
     $categories = [];
     $site_banners = [];
 }
+
+$showingProductGrid = ($selected_category > 0 || !empty($search_keyword) || isset($_GET['show_products']));
+$pageTitle = 'শুভ্রতা - Shuvrota E-commerce';
+include __DIR__ . '/includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="bn" id="htmlRoot">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>শুভ্রতা - Shuvrota E-commerce</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body.lang-bn-mode .lang-en { display: none !important; }
-        body.lang-bn-mode .lang-bn { display: inline-block !important; }
-        body.lang-en-mode .lang-bn { display: none !important; }
-        body.lang-en-mode .lang-en { display: inline-block !important; }
 
-        .sub-navbar { background-color: #111; padding: 10px 0; }
-        .sub-navbar a { color: #fff; text-decoration: none; font-weight: 500; font-size: 14px; margin-right: 25px; transition: color 0.2s; }
-        .sub-navbar a:hover { color: #dc3545; }
-
-        .hero-video-container {
-            position: relative;
-            width: 100%;
-            height: 500px;
-            overflow: hidden;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .hero-video-container video, .hero-video-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center center;
-            opacity: 0.8;
-        }
-        .hero-video-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: #fff;
-            text-align: center;
-            padding: 20px;
-            background: rgba(0,0,0,0.35);
-        }
-
-        .collection-card {
-            position: relative;
-            overflow: hidden;
-            border-radius: 10px;
-            height: 380px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
-        .collection-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center;
-            transition: transform 0.5s ease;
-        }
-        .collection-card:hover img {
-            transform: scale(1.06);
-        }
-        .collection-overlay {
-            position: absolute;
-            bottom: 0; left: 0; width: 100%;
-            background: linear-gradient(transparent, rgba(0,0,0,0.8));
-            color: #fff;
-            padding: 25px 20px;
-            text-align: center;
-        }
-        .product-card img { height: 220px; object-fit: cover; }
-    </style>
-</head>
-<body class="bg-light d-flex flex-column min-vh-100 lang-bn-mode">
-
-<!-- Top Navigation Bar -->
-<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
-    <div class="container">
-        <button class="btn btn-outline-dark border-0 me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuOffcanvas" aria-controls="menuOffcanvas">
-            <i class="fa-solid fa-bars fs-5"></i>
-        </button>
-
-        <a class="navbar-brand fw-bold text-danger fs-3 tracking-wider" href="index.php">
-            <i class="fa-solid fa-gem me-1"></i><span class="lang-bn">শুভ্রতা</span><span class="lang-en">Shuvrota</span>
-        </a>
-
-        <form action="index.php" method="GET" class="d-none d-md-flex mx-auto" style="width: 300px;">
-            <div class="input-group">
-                <input type="text" name="search" class="form-control form-control-sm rounded-start-pill ps-3" placeholder="Search products..." value="<?= htmlspecialchars($search_keyword) ?>">
-                <button class="btn btn-dark btn-sm rounded-end-pill px-3" type="submit"><i class="fa-solid fa-magnifying-glass"></i></button>
-            </div>
-        </form>
-
-        <div class="d-flex align-items-center gap-3 ms-auto">
-            <a href="wishlist.php" class="text-dark text-decoration-none d-flex align-items-center gap-1 small fw-semibold">
-                <i class="fa-regular fa-heart fs-5 text-danger"></i>
-                <span class="d-none d-lg-inline"><span class="lang-bn">উইশলিস্ট</span><span class="lang-en">My Wish List</span></span>
-                <span class="badge bg-danger rounded-pill"><?= $wishlist_count ?></span>
-            </a>
-
-            <a href="cart.php" class="text-dark text-decoration-none d-flex align-items-center gap-1 small fw-semibold">
-                <i class="fa-solid fa-bag-shopping fs-5 text-dark"></i>
-                <span class="d-none d-lg-inline"><span class="lang-bn">কার্ট</span><span class="lang-en">Shopping Cart</span></span>
-                <span class="badge bg-dark rounded-pill"><?= $cart_count ?></span>
-            </a>
-
-            <?php if (isset($_SESSION['customer_id'])): ?>
-                <div class="dropdown">
-                    <a class="dropdown-toggle text-dark text-decoration-none fw-bold small" href="#" data-bs-toggle="dropdown">
-                        <i class="fa-solid fa-user-circle text-danger fs-5"></i> <?= htmlspecialchars($_SESSION['customer_name'] ?? 'User') ?>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                        <li><a class="dropdown-item small text-danger fw-bold" href="logout.php"><i class="fa-solid fa-right-from-bracket me-1"></i> Logout</a></li>
-                    </ul>
-                </div>
-            <?php else: ?>
-                <a href="login.php" class="text-dark text-decoration-none small fw-bold">
-                    <span class="lang-bn">লগইন</span><span class="lang-en">Sign In</span>
-                </a>
-            <?php endif; ?>
-
-            <div class="dropdown">
-                <a class="btn btn-sm btn-outline-secondary px-2 py-1 dropdown-toggle rounded-pill small" href="#" data-bs-toggle="dropdown" id="currentLangText">বাংলা</a>
-                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                    <li><a class="dropdown-item small" href="#" onclick="switchLanguage('bn')">বাংলা (BN)</a></li>
-                    <li><a class="dropdown-item small" href="#" onclick="switchLanguage('en')">English (EN)</a></li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</nav>
-
-<!-- Sub Navbar -->
-<div class="sub-navbar d-none d-lg-block">
-    <div class="container text-uppercase">
-        <a href="index.php"><span class="lang-bn">হোম</span><span class="lang-en">Home</span></a>
-        <?php foreach($categories as $cat): ?>
-            <a href="index.php?category_id=<?= $cat['id'] ?>"><?= htmlspecialchars($cat['name']) ?></a>
-        <?php endforeach; ?>
-        <a href="track.php" class="float-end text-warning"><i class="fa-solid fa-truck-fast me-1"></i> <span class="lang-bn">অর্ডার ট্র্যাকিং</span><span class="lang-en">Order Tracking</span></a>
-    </div>
-</div>
-
-<!-- Offcanvas Sidebar Menu -->
-<div class="offcanvas offcanvas-start" tabindex="-1" id="menuOffcanvas" aria-labelledby="menuOffcanvasLabel">
-    <div class="offcanvas-header bg-dark text-white">
-        <h5 class="offcanvas-title" id="menuOffcanvasLabel"><i class="fa-solid fa-gem text-danger me-2"></i> Shuvrota Menu</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body">
-        <h6 class="text-muted text-uppercase fw-bold small mb-3">Categories</h6>
-        <ul class="list-unstyled">
-            <li class="mb-2"><a href="index.php" class="text-dark text-decoration-none fw-semibold"><i class="fa-solid fa-angle-right text-danger me-2"></i> Home</a></li>
-            <?php foreach($categories as $cat): ?>
-                <li class="mb-2"><a href="index.php?category_id=<?= $cat['id'] ?>" class="text-dark text-decoration-none fw-semibold"><i class="fa-solid fa-angle-right text-danger me-2"></i> <?= htmlspecialchars($cat['name']) ?></a></li>
-            <?php endforeach; ?>
-        </ul>
-        <hr>
-        <ul class="list-unstyled">
-            <li class="mb-2"><a href="track.php" class="text-dark text-decoration-none"><i class="fa-solid fa-truck-fast me-2 text-danger"></i> Order Tracking</a></li>
-            <li class="mb-2"><a href="cart.php" class="text-dark text-decoration-none"><i class="fa-solid fa-bag-shopping me-2 text-danger"></i> Shopping Cart</a></li>
-            <li class="mb-2"><a href="wishlist.php" class="text-dark text-decoration-none"><i class="fa-regular fa-heart me-2 text-danger"></i> My Wish List</a></li>
-        </ul>
-    </div>
-</div>
-
-<?php if ($selected_category > 0 || !empty($search_keyword) || isset($_GET['show_products'])): ?>
+<?php if ($showingProductGrid): ?>
+    <!-- ================= PRODUCT LISTING ================= -->
     <div class="container my-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="fw-bold">
-                <span class="lang-bn">প্রোডাক্ট তালিকা</span>
-                <span class="lang-en">Product List</span>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+            <h2 class="fw-bold mb-0">
+                <span class="lang-bn"><?= !empty($search_keyword) ? 'অনুসন্ধানের ফলাফল' : 'প্রোডাক্ট তালিকা' ?></span>
+                <span class="lang-en"><?= !empty($search_keyword) ? 'Search Results' : 'Product List' ?></span>
             </h2>
             <a href="index.php" class="btn btn-outline-dark btn-sm rounded-pill px-3">
+                <i class="fa-solid fa-arrow-left me-1"></i>
                 <span class="lang-bn">হোমে ফিরে যান</span>
                 <span class="lang-en">Back to Home</span>
             </a>
         </div>
 
-        <div class="row row-cols-1 row-cols-md-4 g-4">
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 g-md-4">
             <?php if (!empty($products)): ?>
                 <?php foreach ($products as $prod): ?>
                     <?php $is_in_wishlist = in_array($prod['id'], $user_wishlist_ids); ?>
                     <div class="col">
-                        <div class="card product-card h-100 shadow-sm border-0 rounded-3 position-relative">
-                            <a href="index.php?action=wishlist&id=<?= $prod['id'] ?><?= $selected_category > 0 ? '&category_id='.$selected_category : '' ?>" class="position-absolute top-0 end-0 m-3 text-danger bg-white p-2 rounded-circle shadow-sm text-decoration-none z-3">
+                        <div class="card product-card h-100 position-relative">
+                            <a href="index.php?action=wishlist&id=<?= $prod['id'] ?><?= $selected_category > 0 ? '&category_id='.$selected_category : '' ?>"
+                               class="wishlist-toggle position-absolute top-0 end-0 m-2 p-2 rounded-circle text-decoration-none z-3"
+                               aria-label="উইশলিস্টে যোগ/বাদ দিন">
                                 <i class="<?= $is_in_wishlist ? 'fa-solid fa-heart' : 'fa-regular fa-heart' ?>"></i>
                             </a>
                             <a href="product-details.php?id=<?= $prod['id'] ?>">
-                                <img src="<?= !empty($prod['img']) ? 'uploads/' . htmlspecialchars($prod['img']) : 'assets/images/default.jpg' ?>" class="card-img-top" alt="Product">
+                                <img src="<?= !empty($prod['img']) ? 'uploads/' . htmlspecialchars($prod['img']) : 'assets/images/default.jpg' ?>" class="card-img-top product-img" alt="<?= htmlspecialchars($prod['name']) ?>" loading="lazy">
                             </a>
                             <div class="card-body d-flex flex-column">
                                 <h5 class="card-title fs-6 fw-bold">
@@ -313,9 +153,10 @@ try {
                 <?php endforeach; ?>
             <?php else: ?>
                 <div class="col-12 text-center py-5">
+                    <i class="fa-solid fa-box-open fs-1 text-ink-muted mb-3 d-block"></i>
                     <h4 class="text-muted">
-                        <span class="lang-bn">এই ক্যাটাগরিতে কোনো পণ্য পাওয়া যায়নি!</span>
-                        <span class="lang-en">No products found in this category!</span>
+                        <span class="lang-bn">কোনো পণ্য পাওয়া যায়নি!</span>
+                        <span class="lang-en">No products found!</span>
                     </h4>
                     <a href="index.php" class="btn btn-danger mt-3 rounded-pill px-4">
                         <span class="lang-bn">হোমে ফিরে যান</span>
@@ -326,7 +167,7 @@ try {
         </div>
     </div>
 <?php else: ?>
-    <!-- ডাইনামিক হেরিটেজ ল্যান্ডস্কেপ ব্যানার বা ভিডিও সেকশন -->
+    <!-- ================= HERO ================= -->
     <div class="hero-video-container">
         <?php if (isset($site_banners['hero_banner'])): ?>
             <?php if ($site_banners['hero_banner']['media_type'] === 'video'): ?>
@@ -360,22 +201,22 @@ try {
         </div>
     </div>
 
-    <!-- কালেকশন সেকশন -->
+    <!-- ================= COLLECTIONS ================= -->
     <div class="container my-5" id="collections">
         <div class="text-center mb-5">
-            <h2 class="fw-bold">
+            <h2 class="section-heading">
                 <span class="lang-bn">আমাদের এক্সক্লুসিভ কালেকশনসমূহ</span>
                 <span class="lang-en">Our Exclusive Collections</span>
             </h2>
-            <p class="text-muted">
+            <p class="text-muted mt-3">
                 <span class="lang-bn">নারী কারিগরদের নিপুণ হাতে তৈরি ঐতিহ্যবাহী পোশাক ও হস্তশিল্প</span>
                 <span class="lang-en">Traditional wear and handicrafts crafted by women artisans</span>
             </p>
         </div>
 
-        <div class="row row-cols-1 row-cols-md-4 g-4">
+        <div class="row row-cols-2 row-cols-md-4 g-3 g-md-4">
             <?php if (!empty($categories)): ?>
-                <?php 
+                <?php
                     $fallback_images = [
                         'Saree' => 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80',
                         'Kurti' => 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=600&q=80',
@@ -383,12 +224,10 @@ try {
                     ];
                     $default_img = 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=600&q=80';
 
-                    foreach($categories as $cat): 
+                    foreach($categories as $cat):
                         $c_name = $cat['name'];
                         $s_key = 'cat_img_' . $cat['id'];
-                        
-                        // ১. প্রথমে ব্যানার ম্যানেজমেন্ট থেকে আপলোড করা ছবি খুঁজবে
-                        // ২. না থাকলে আগের ফলব্যাক ছবি বা ডিফল্ট ছবি ব্যবহার করবে
+
                         if (isset($site_banners[$s_key]) && !empty($site_banners[$s_key]['media_path'])) {
                             $img_url = $site_banners[$s_key]['media_path'];
                         } else {
@@ -403,7 +242,7 @@ try {
                 ?>
                     <div class="col">
                         <div class="collection-card">
-                            <img src="<?= htmlspecialchars($img_url) ?>" alt="<?= htmlspecialchars($c_name) ?>">
+                            <img src="<?= htmlspecialchars($img_url) ?>" alt="<?= htmlspecialchars($c_name) ?>" loading="lazy">
                             <div class="collection-overlay">
                                 <h5 class="fw-bold mb-2"><?= htmlspecialchars($c_name) ?> <span class="lang-bn">কালেকশন</span><span class="lang-en">Collection</span></h5>
                                 <a href="index.php?category_id=<?= $cat['id'] ?>" class="btn btn-sm btn-light rounded-pill px-3 fw-bold">
@@ -421,71 +260,36 @@ try {
             <?php endif; ?>
         </div>
     </div>
-<?php endif; ?>
 
-<!-- Footer Section -->
-<footer class="bg-dark text-light pt-5 pb-3 mt-auto">
-    <div class="container">
-        <div class="row g-4">
-            <div class="col-md-4">
-                <h5 class="fw-bold text-warning mb-3">Shuvrota</h5>
-                <p class="text-light small">
-                    <span class="lang-bn">Shuvrota একটি community-driven social enterprise, যা হরিজন/দলিত সম্প্রদায়ের নারী কারিগরদের ক্ষমতায়নে কাজ করে।</span>
-                    <span class="lang-en">Shuvrota is a community-driven social enterprise working to empower women artisans from Harijan/Dalit communities.</span>
-                </p>
+    <!-- ================= TRUST STRIP ================= -->
+    <div class="container mb-5">
+        <div class="row g-3 text-center">
+            <div class="col-6 col-md-3">
+                <i class="fa-solid fa-hand-holding-heart fs-3 text-warning mb-2 d-block"></i>
+                <div class="small fw-semibold">
+                    <span class="lang-bn">হাতে তৈরি, যত্নে গড়া</span><span class="lang-en">Handcrafted with Care</span>
+                </div>
             </div>
-            <div class="col-md-4">
-                <h6 class="fw-bold text-warning mb-3">
-                    <span class="lang-bn">জরুরি লিংক</span>
-                    <span class="lang-en">Quick Links</span>
-                </h6>
-                <ul class="list-unstyled small">
-                    <li class="mb-2"><a href="about.php" class="text-decoration-none text-light"><span class="lang-bn">আমাদের সম্পর্কে</span><span class="lang-en">About Us</span></a></li>
-                    <li class="mb-2"><a href="delivery-policy.php" class="text-decoration-none text-light"><span class="lang-bn">ডেলিভারি পলিসি</span><span class="lang-en">Delivery Policy</span></a></li>
-                    <li class="mb-2"><a href="refund-policy.php" class="text-decoration-none text-light"><span class="lang-bn">রিটার্ন ও রিফান্ড পলিসি</span><span class="lang-en">Return & Refund Policy</span></a></li>
-                    <li class="mb-2"><a href="terms.php" class="text-decoration-none text-light"><span class="lang-bn">টার্মস অ্যান্ড কন্ডিশন্স</span><span class="lang-en">Terms & Conditions</span></a></li>
-                </ul>
+            <div class="col-6 col-md-3">
+                <i class="fa-solid fa-truck-fast fs-3 text-warning mb-2 d-block"></i>
+                <div class="small fw-semibold">
+                    <span class="lang-bn">দ্রুত ডেলিভারি</span><span class="lang-en">Fast Delivery</span>
+                </div>
             </div>
-            <div class="col-md-4">
-                <h6 class="fw-bold text-warning mb-3">
-                    <span class="lang-bn">যোগাযোগ করুন</span>
-                    <span class="lang-en">Contact Us</span>
-                </h6>
-                <p class="text-light small mb-2"><i class="fa-solid fa-location-dot me-2 text-warning"></i><span class="lang-bn">ব্রিজ মোড়, ময়মনসিংহ, বাংলাদেশ</span><span class="lang-en">Bridge More, Mymensingh, Bangladesh</span></p>
-                <p class="text-light small mb-2"><i class="fa-solid fa-phone me-2 text-warning"></i><a href="tel:01719844226" class="text-light text-decoration-none">01719844226</a></p>
-                <p class="text-light small mb-2"><i class="fa-brands fa-whatsapp me-2 text-warning"></i><a href="https://wa.me/8801719844226" target="_blank" class="text-light text-decoration-none">01719844226</a></p>
-                <p class="text-light small mb-2"><i class="fa-solid fa-envelope me-2 text-warning"></i><a href="mailto:shuvrota032@gmail.com" class="text-light text-decoration-none">shuvrota032@gmail.com</a></p>
-                <p class="text-light small mb-2"><i class="fa-solid fa-user-shield me-2 text-warning"></i><span class="lang-bn">অ্যাডমিন:</span><span class="lang-en">Admin:</span> <a href="mailto:fariaislam1909@gmail.com" class="text-light text-decoration-none">fariaislam1909@gmail.com</a></p>
-                <p class="text-light small mb-0"><i class="fa-brands fa-facebook me-2 text-warning"></i><a href="#" target="_blank" class="text-light text-decoration-none"><span class="lang-bn">ফেসবুক পেজ</span><span class="lang-en">Facebook Page</span></a></p>
+            <div class="col-6 col-md-3">
+                <i class="fa-solid fa-money-bill-wave fs-3 text-warning mb-2 d-block"></i>
+                <div class="small fw-semibold">
+                    <span class="lang-bn">ক্যাশ অন ডেলিভারি</span><span class="lang-en">Cash on Delivery</span>
+                </div>
             </div>
-        </div>
-        <hr class="border-secondary my-4">
-        <div class="text-center text-light small">
-            &copy; 2026 Shuvrota. <span class="lang-bn">সর্বস্বত্ব সংরক্ষিত।</span><span class="lang-en">All rights reserved.</span>
+            <div class="col-6 col-md-3">
+                <i class="fa-brands fa-whatsapp fs-3 text-warning mb-2 d-block"></i>
+                <div class="small fw-semibold">
+                    <span class="lang-bn">সরাসরি সাপোর্ট</span><span class="lang-en">Direct Support</span>
+                </div>
+            </div>
         </div>
     </div>
-</footer>
+<?php endif; ?>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-function switchLanguage(lang) {
-    const body = document.body;
-    if (lang === 'en') {
-        body.classList.remove('lang-bn-mode');
-        body.classList.add('lang-en-mode');
-        document.getElementById('currentLangText').innerText = 'English';
-        localStorage.setItem('selectedLang', 'en');
-    } else {
-        body.classList.remove('lang-en-mode');
-        body.classList.add('lang-bn-mode');
-        document.getElementById('currentLangText').innerText = 'বাংলা';
-        localStorage.setItem('selectedLang', 'bn');
-    }
-}
-window.onload = function() {
-    const savedLang = localStorage.getItem('selectedLang') || 'bn';
-    switchLanguage(savedLang);
-};
-</script>
-</body>
-</html>
+<?php include __DIR__ . '/includes/footer.php'; ?>
