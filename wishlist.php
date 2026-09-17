@@ -19,6 +19,11 @@ $errorMessage = '';
 // উইশলিস্টে নতুন প্রোডাক্ট যোগ করার লজিক
 if (isset($_GET['add'])) {
     $product_id = (int)$_GET['add'];
+<<<<<<< HEAD
+=======
+
+    // চেক করা আগে থেকেই লিস্টে আছে কি না
+>>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
     $chk = $pdo->prepare("SELECT id FROM wishlists WHERE customer_id = ? AND product_id = ?");
     $chk->execute([$customer_id, $product_id]);
 
@@ -135,6 +140,7 @@ include __DIR__ . '/includes/header.php';
         <span class="lang-bn">আমার উইশলিস্ট</span>
         <span class="lang-en">My Wishlist</span>
     </h2>
+<<<<<<< HEAD
 
     <?php if (!empty($successMessage)): ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -142,6 +148,8 @@ include __DIR__ . '/includes/header.php';
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
+=======
+>>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
 
     <?php if(empty($wishlist_products)): ?>
         <div class="card p-5 text-center shadow-sm rounded-4 border-0">
@@ -156,6 +164,7 @@ include __DIR__ . '/includes/header.php';
             </a>
         </div>
     <?php else: ?>
+<<<<<<< HEAD
         <form action="wishlist.php" method="POST" id="wishlistForm">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div class="form-check">
@@ -197,6 +206,23 @@ include __DIR__ . '/includes/header.php';
                                     </a>
                                 </div>
                             </div>
+=======
+        <div class="row row-cols-2 row-cols-md-3 g-3 g-md-4">
+            <?php foreach($wishlist_products as $prod): ?>
+                <div class="col">
+                    <div class="card product-card h-100 position-relative">
+                        <a href="wishlist.php?remove=<?= $prod['id'] ?>" class="wishlist-toggle position-absolute top-0 end-0 m-2 p-2 rounded-circle text-decoration-none z-2" title="Remove" aria-label="মুছে ফেলুন">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </a>
+                        <img src="<?= !empty($prod['img']) ? 'uploads/' . htmlspecialchars($prod['img']) : 'assets/images/default.jpg' ?>" class="card-img-top product-img" alt="<?= htmlspecialchars($prod['name']) ?>" loading="lazy">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title fs-6 fw-bold"><?= htmlspecialchars($prod['name']) ?></h5>
+                            <p class="text-danger fw-bold mb-3">৳ <?= number_format($prod['discount_price'] > 0 ? $prod['discount_price'] : $prod['price'], 2) ?></p>
+                            <a href="product-details.php?id=<?= $prod['id'] ?>" class="btn btn-outline-danger btn-sm w-100 rounded-pill mt-auto">
+                                <span class="lang-bn">বিস্তারিত দেখুন</span>
+                                <span class="lang-en">View Details</span>
+                            </a>
+>>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -212,4 +238,8 @@ include __DIR__ . '/includes/header.php';
     <?php endif; ?>
 </div>
 
+<<<<<<< HEAD
 <?php include __DIR__ . '/includes/footer.php'; ?>
+=======
+<?php include __DIR__ . '/includes/footer.php'; ?>
+>>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e

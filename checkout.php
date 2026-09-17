@@ -42,7 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $coupon = $stmt->fetch();
 
             if ($coupon) {
+<<<<<<< HEAD
                 $min_order_amt = $coupon['min_order'] ?? ($coupon['min_amount'] ?? ($coupon['min_order_amount'] ?? 0));
+=======
+                $min_order_amt = $coupon['min_order'] ?? ($coupon['min_amount'] ?? 0);
+>>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
 
                 if ($subtotal >= $min_order_amt) {
                     $d_type = $coupon['discount_type'] ?? ($coupon['type'] ?? 'percentage');
@@ -88,8 +92,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $stmt = $pdo->prepare("INSERT INTO orders (order_number, customer_id, guest_name, guest_phone, guest_email, shipping_name, shipping_phone, shipping_address, shipping_area_id, subtotal, discount_amount, delivery_charge, total_amount, payment_method, payment_status, status, placed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', 'pending', 'new', NOW())");
                 $stmt->execute([
+<<<<<<< HEAD
                     $order_number, $customer_id, $name, $phone, $email, $name, $phone, $address,
                     $shipping_area_id, $subtotal, $discount_amount, $shipping_cost, $total_amount
+=======
+                    $order_number, $name, $phone, $email, $name, $phone, $address,
+                    $shipping_area_id, $subtotal, $shipping_cost, $total_amount
+>>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
                 ]);
                 $order_id = $pdo->lastInsertId();
 
@@ -196,7 +205,11 @@ include __DIR__ . '/includes/header.php';
                 <div class="mb-4 p-3 border rounded-3 bg-ivory">
                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
                         <label class="form-label fw-bold small text-dark mb-0"><span class="lang-bn">কুপন কোড (যদি থাকে)</span><span class="lang-en">Coupon Code (if any)</span></label>
+<<<<<<< HEAD
                         <span class="coupon-toggle-btn cursor-pointer text-danger fw-semibold small" onclick="toggleAvailableCoupons()"><i class="fa-solid fa-gift me-1"></i><span class="lang-bn">উপলব্ধ কুপন দেখুন</span><span class="lang-en">View Available Coupons</span></span>
+=======
+                        <span class="coupon-toggle-btn" onclick="toggleAvailableCoupons()"><i class="fa-solid fa-gift me-1"></i><span class="lang-bn">উপলব্ধ কুপন দেখুন</span><span class="lang-en">View Available Coupons</span></span>
+>>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
                     </div>
 
                     <div class="input-group">
@@ -208,7 +221,11 @@ include __DIR__ . '/includes/header.php';
                         <div class="small fw-bold text-danger mb-2"><span class="lang-bn">অ্যাভেইলেবল কুপন সমূহ:</span><span class="lang-en">Available Coupons:</span></div>
                         <?php if (!empty($avail_coupons)): ?>
                             <?php foreach($avail_coupons as $cp):
+<<<<<<< HEAD
                                 $min_o = $cp['min_order'] ?? ($cp['min_amount'] ?? ($cp['min_order_amount'] ?? 0));
+=======
+                                $min_o = $cp['min_order'] ?? ($cp['min_amount'] ?? 0);
+>>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
                                 $diff = $min_o - $subtotal;
                                 $d_type = $cp['discount_type'] ?? ($cp['type'] ?? 'percentage');
                                 $d_val = $cp['discount_value'] ?? ($cp['discount'] ?? ($cp['value'] ?? 0));
@@ -297,4 +314,8 @@ function updateTotal() {
 document.addEventListener('DOMContentLoaded', updateTotal);
 </script>
 
+<<<<<<< HEAD
 <?php include __DIR__ . '/includes/footer.php'; ?>
+=======
+<?php include __DIR__ . '/includes/footer.php'; ?>
+>>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
