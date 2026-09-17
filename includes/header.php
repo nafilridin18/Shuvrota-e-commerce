@@ -98,6 +98,7 @@ try {
                         <span class="d-none d-lg-inline"><?= htmlspecialchars($_SESSION['customer_name'] ?? 'Account') ?></span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 mt-2">
+                        <li><a class="dropdown-item small fw-semibold" href="account.php"><i class="fa-solid fa-user-gear me-2"></i><span class="lang-bn">আমার অ্যাকাউন্ট</span><span class="lang-en">My Account</span></a></li>
                         <li><a class="dropdown-item small" href="wishlist.php"><i class="fa-regular fa-heart me-2"></i><span class="lang-bn">উইশলিস্ট</span><span class="lang-en">Wishlist</span></a></li>
                         <li><a class="dropdown-item small" href="track.php"><i class="fa-solid fa-truck-fast me-2"></i><span class="lang-bn">অর্ডার ট্র্যাকিং</span><span class="lang-en">Track Order</span></a></li>
                         <li><hr class="dropdown-divider"></li>
@@ -161,6 +162,9 @@ try {
         </ul>
         <hr>
         <ul class="list-unstyled">
+            <?php if ($__customer_id > 0): ?>
+                <li class="mb-2"><a href="account.php" class="text-dark text-decoration-none fw-semibold"><i class="fa-solid fa-user-gear me-2 text-danger"></i> <span class="lang-bn">আমার অ্যাকাউন্ট</span><span class="lang-en">My Account</span></a></li>
+            <?php endif; ?>
             <li class="mb-2"><a href="track.php" class="text-dark text-decoration-none"><i class="fa-solid fa-truck-fast me-2 text-danger"></i> <span class="lang-bn">অর্ডার ট্র্যাকিং</span><span class="lang-en">Order Tracking</span></a></li>
             <li class="mb-2"><a href="cart.php" class="text-dark text-decoration-none"><i class="fa-solid fa-bag-shopping me-2 text-danger"></i> <span class="lang-bn">শপিং কার্ট</span><span class="lang-en">Shopping Cart</span></a></li>
             <li class="mb-2"><a href="wishlist.php" class="text-dark text-decoration-none"><i class="fa-regular fa-heart me-2 text-danger"></i> <span class="lang-bn">উইশলিস্ট</span><span class="lang-en">My Wish List</span></a></li>

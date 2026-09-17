@@ -1,4 +1,7 @@
-<?php include 'includes/header.php'; ?>
+<?php
+$pageTitle = 'আমাদের সম্পর্কে - শুভ্রতা';
+include 'includes/header.php';
+?>
 
 <div class="container my-5" style="max-width: 850px;">
     <div class="card border-0 shadow-sm p-4 p-md-5 rounded-4">

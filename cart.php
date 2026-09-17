@@ -21,11 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id'])) {
 
         if ($product) {
             $title = $product['name'];
-            // ডিসকাউন্ট প্রাইस থাকলে সেটি ধরবে, নাojle রেগুলার প্রাইস
             $price = (!empty($product['discount_price']) && $product['discount_price'] > 0) ? $product['discount_price'] : $product['price'];
             $image = $product['img'] ?? '';
 
-            // ইউনিক কার্ট আইটেম চাবি (product_id + size + color)
             $cart_key = $product_id . '_' . md5($size . '_' . $color);
 
             if (isset($_SESSION['cart'][$cart_key])) {
@@ -63,58 +61,28 @@ $subtotal = 0;
 foreach($cart as $item) {
     $subtotal += $item['price'] * $item['qty'];
 }
+
+$pageTitle = 'শপিং কার্ট - শুভ্রতা';
+include __DIR__ . '/includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="bn" id="htmlRoot">
-<head>
-    <meta charset="UTF-8">
-    <title>শপিং কার্ট - শুভ্রতা</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .lang-en { display: none; }
-    </style>
-</head>
-<body class="bg-light d-flex flex-column min-vh-100">
 
-<!-- Navigation Bar -->
-<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
-    <div class="container">
-        <a class="navbar-brand fw-bold text-danger" href="index.php">
-            <i class="fa-solid fa-gem me-1"></i><span class="lang-bn">শুভ্রতা</span><span class="lang-en">Shuvrota</span>
-        </a>
-        <div class="ms-auto d-flex align-items-center gap-2">
-            <a class="btn btn-outline-dark btn-sm px-3 rounded-pill" href="cart.php">
-                <i class="fa-solid fa-cart-shopping me-1"></i> <span class="lang-bn">কার্ট</span><span class="lang-en">Cart</span>
-            </a>
-            <!-- Language Switcher -->
-            <div class="dropdown ms-2">
-                <a class="btn btn-sm btn-outline-secondary px-3 dropdown-toggle rounded-pill" href="#" role="button" data-bs-toggle="dropdown" id="currentLangText">বাংলা</a>
-                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                    <li><a class="dropdown-item small" href="#" onclick="switchLanguage('bn')">বাংলা (BN)</a></li>
-                    <li><a class="dropdown-item small" href="#" onclick="switchLanguage('en')">English (EN)</a></li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</nav>
-
-<div class="container my-5" style="max-width: 900px;">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold">
-            <i class="fa-solid fa-bag-shopping me-2"></i>
+<div class="container my-4 my-md-5" style="max-width: 950px;">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="fa-solid fa-bag-shopping me-2 text-danger"></i>
             <span class="lang-bn">আপনার শপিং কার্ট</span>
             <span class="lang-en">Your Shopping Cart</span>
         </h2>
-        <a href="index.php" class="btn btn-outline-secondary rounded-pill">
-            <i class="fa-solid fa-arrow-left me-1"></i> 
+        <a href="index.php" class="btn btn-outline-secondary rounded-pill btn-sm">
+            <i class="fa-solid fa-arrow-left me-1"></i>
             <span class="lang-bn">কেনাকাটা চালিয়ে যান</span>
             <span class="lang-en">Continue Shopping</span>
         </a>
     </div>
 
     <?php if(empty($cart)): ?>
-        <div class="card p-5 text-center shadow-sm rounded-4 border-0">
+        <div class="card p-5 text-center border-0 shadow-sm rounded-4">
+            <i class="fa-solid fa-cart-shopping fs-1 text-ink-muted mb-3"></i>
             <h4 class="text-muted mb-3">
                 <span class="lang-bn">আপনার কার্ট খালি!</span>
                 <span class="lang-en">Your cart is empty!</span>
@@ -152,13 +120,13 @@ foreach($cart as $item) {
                     </thead>
                     <tbody>
                         <?php foreach($cart as $key => $item): ?>
-                            <?php 
+                            <?php
                                 $img_src = !empty($item['image']) ? 'uploads/' . htmlspecialchars($item['image']) : 'assets/images/default.jpg';
                             ?>
                             <tr>
                                 <td class="ps-4">
                                     <div class="d-flex align-items-center gap-3">
-                                        <img src="<?= $img_src ?>" width="50" height="50" class="rounded object-fit-cover">
+                                        <img src="<?= $img_src ?>" width="50" height="50" class="rounded object-fit-cover" alt="<?= htmlspecialchars($item['title']) ?>">
                                         <span class="fw-semibold"><?= htmlspecialchars($item['title']) ?></span>
                                     </div>
                                 </td>
@@ -169,7 +137,7 @@ foreach($cart as $item) {
                                 <td><?= $item['qty'] ?></td>
                                 <td class="fw-bold text-danger">৳ <?= number_format($item['price'] * $item['qty'], 2) ?></td>
                                 <td class="text-center">
-                                    <a href="cart.php?action=remove&key=<?= $key ?>" class="btn btn-sm btn-outline-danger rounded-circle"><i class="fa-solid fa-trash-can"></i></a>
+                                    <a href="cart.php?action=remove&key=<?= $key ?>" class="btn btn-sm btn-outline-danger rounded-circle" aria-label="মুছুন"><i class="fa-solid fa-trash-can"></i></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -188,7 +156,7 @@ foreach($cart as $item) {
             </div>
             <hr>
             <div class="d-flex justify-content-end">
-                <a href="checkout.php" class="btn btn-success btn-lg rounded-pill px-5 fw-bold shadow">
+                <a href="checkout.php" class="btn btn-success btn-lg rounded-pill px-5 fw-bold shadow-sm w-100 w-md-auto">
                     <span class="lang-bn">চেকআউট করুন</span>
                     <span class="lang-en">Proceed to Checkout</span>
                 </a>
@@ -197,32 +165,4 @@ foreach($cart as $item) {
     <?php endif; ?>
 </div>
 
-<footer class="bg-dark text-light pt-4 pb-3 mt-auto text-center small">
-    <p class="text-muted mb-0">&copy; 2026 Shuvrota. <span class="lang-bn">সর্বস্বত্ব সংরক্ষিত।</span><span class="lang-en">All rights reserved.</span></p>
-</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-function switchLanguage(lang) {
-    const bnElements = document.querySelectorAll('.lang-bn');
-    const enElements = document.querySelectorAll('.lang-en');
-    if (lang === 'en') {
-        bnElements.forEach(el => el.style.display = 'none');
-        enElements.forEach(el => el.style.display = 'inline');
-        document.getElementById('currentLangText').innerText = 'English';
-        localStorage.setItem('selectedLang', 'en');
-    } else {
-        enElements.forEach(el => el.style.display = 'none');
-        bnElements.forEach(el => el.style.display = 'inline');
-        document.getElementById('currentLangText').innerText = 'বাংলা';
-        localStorage.setItem('selectedLang', 'bn');
-    }
-}
-
-window.onload = function() {
-    const savedLang = localStorage.getItem('selectedLang') || 'bn';
-    switchLanguage(savedLang);
-};
-</script>
-</body>
-</html>
+<?php include __DIR__ . '/includes/footer.php'; ?>
