@@ -8,13 +8,16 @@ unset($_SESSION['msg']);
 
 $total_orders = $pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn();
 $new_orders   = $pdo->query("SELECT COUNT(*) FROM orders WHERE status = 'new'")->fetchColumn();
-$total_rev    = $pdo->query("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'delivered'")->fetchColumn();
+
+// শুধুমাত্র ডেলিভারড এবং পেমেন্ট Paid হলে তবেই রেভিনিউ কাউন্ট হবে
+$total_rev    = $pdo->query("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'delivered' AND payment_status = 'Paid'")->fetchColumn();
+
 $low_stock    = $pdo->query("SELECT COUNT(*) FROM products WHERE stock_quantity <= 3 AND status = 'published'")->fetchColumn();
 
-$products_sql = "SELECT p.*, c.name as category_name, 
+$products_sql = "SELECT p.*, c.name as category_name,
        (SELECT image_path FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC LIMIT 1) as primary_image
-        FROM products p 
-        LEFT JOIN categories c ON p.category_id = c.id 
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
         ORDER BY p.id DESC";
 $products = $pdo->query($products_sql)->fetchAll();
 ?>
@@ -32,7 +35,7 @@ $products = $pdo->query($products_sql)->fetchAll();
         body.lang-en-mode .lang-bn { display: none !important; }
         body.lang-en-mode .lang-en { display: inline-block !important; }
 
-        .order-column { background: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); min-height: 400px; }
+        .order-column { background: #fff; border-radius: 12px; padding: 12px; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); min-height: 400px; }
         .order-item-card { background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 12px; transition: 0.2s; }
         .order-item-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
     </style>
@@ -42,7 +45,7 @@ $products = $pdo->query($products_sql)->fetchAll();
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
     <div class="container">
         <a class="navbar-brand fw-bold text-danger" href="index.php"><i class="fa-solid fa-gauge me-2"></i><span class="lang-bn">শুভ্রতা এডমিন</span><span class="lang-en">Shuvrota Admin</span></a>
-        
+       
         <div class="d-flex align-items-center gap-3 ms-auto">
             <span class="text-light small d-none d-md-inline">
                 <span class="lang-bn">স্বাগতম, <strong><?= htmlspecialchars($_SESSION['admin_name'] ?? 'Admin') ?></strong></span>
@@ -130,11 +133,26 @@ $products = $pdo->query($products_sql)->fetchAll();
     </div>
 
     <?php
-    $statuses = ['new' => 'New', 'processing' => 'Processing', 'shipped' => 'Shipped', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'];
-    $status_colors = ['new' => 'warning', 'processing' => 'info', 'shipped' => 'primary', 'delivered' => 'success', 'cancelled' => 'danger'];
+    // এখানে 'Cancelled' এবং 'Returned' আলাদা করে ৬টি কলাম ডিফাইন করা হলো
+    $statuses = [
+        'new' => 'New', 
+        'processing' => 'Processing', 
+        'shipped' => 'Shipped', 
+        'delivered' => 'Delivered', 
+        'cancelled' => 'Cancelled',
+        'returned' => 'Returned'
+    ];
+    $status_colors = [
+        'new' => 'warning', 
+        'processing' => 'info', 
+        'shipped' => 'primary', 
+        'delivered' => 'success', 
+        'cancelled' => 'danger',
+        'returned' => 'secondary'
+    ];
     ?>
     <h4 class="fw-bold mb-3"><i class="fa-solid fa-columns me-2"></i><span class="lang-bn">গ্রাহকদের অর্ডারের কলামভিত্তিক তালিকা</span><span class="lang-en">Customer Orders Pipeline</span></h4>
-    <div class="row g-3 mb-5">
+    <div class="row g-2 mb-5">
         <?php foreach($statuses as $st_key => $st_name): ?>
             <?php
                 $st_stmt = $pdo->prepare("SELECT o.*, da.area_name FROM orders o LEFT JOIN delivery_areas da ON o.shipping_area_id = da.id WHERE o.status = ? ORDER BY o.id DESC");
@@ -143,7 +161,7 @@ $products = $pdo->query($products_sql)->fetchAll();
             ?>
             <div class="col">
                 <div class="order-column border-top border-<?= $status_colors[$st_key] ?> border-4">
-                    <h6 class="fw-bold text-<?= $status_colors[$st_key] ?> mb-3 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-<?= $status_colors[$st_key] ?> mb-3 d-flex justify-content-between align-items-center" style="font-size: 14px;">
                         <span><?= $st_name ?></span>
                         <span class="badge bg-<?= $status_colors[$st_key] ?> <?= in_array($st_key, ['new', 'processing']) ? 'text-dark' : 'text-white' ?>"><?= count($st_orders) ?></span>
                     </h6>
@@ -154,12 +172,29 @@ $products = $pdo->query($products_sql)->fetchAll();
                                     $item_stmt = $pdo->prepare("SELECT * FROM order_items WHERE order_id = ?");
                                     $item_stmt->execute([$ord['id']]);
                                     $items = $item_stmt->fetchAll();
+
+                                    // পেমেন্ট স্ট্যাটাস ব্যাজ কালার নির্ধারণ
+                                    $p_status = strtolower($ord['payment_status'] ?? 'pending');
+                                    $p_badge_bg = 'bg-warning text-dark';
+                                    if($p_status == 'paid') {
+                                        $p_badge_bg = 'bg-success text-white';
+                                    } elseif($p_status == 'failed') {
+                                        $p_badge_bg = 'bg-danger text-white';
+                                    }
                                 ?>
                                 <div class="order-item-card">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <span class="fw-bold text-danger small"><?= htmlspecialchars($ord['order_number']) ?></span>
                                         <span class="text-success fw-bold small">৳ <?= number_format($ord['total_amount'], 2) ?></span>
                                     </div>
+
+                                    <!-- পেমেন্ট স্ট্যাটাস ব্যাজ -->
+                                    <div class="mb-1">
+                                        <span class="badge <?= $p_badge_bg ?>" style="font-size: 10px;">
+                                            Payment: <?= htmlspecialchars(ucfirst($ord['payment_status'] ?? 'Pending')) ?>
+                                        </span>
+                                    </div>
+
                                     <div class="fw-semibold small text-dark mb-1"><?= htmlspecialchars($ord['shipping_name'] ?? $ord['name'] ?? 'N/A') ?></div>
                                     <div class="text-muted small mb-2"><i class="fa-solid fa-phone me-1"></i><?= htmlspecialchars($ord['shipping_phone'] ?? $ord['phone'] ?? 'N/A') ?></div>
                                     
@@ -229,7 +264,7 @@ $products = $pdo->query($products_sql)->fetchAll();
                                         <a href="delete_product.php?id=<?= $p['id'] ?>" 
                                            class="btn btn-sm btn-outline-danger" 
                                            onclick="return confirm('আপনি কি নিশ্চিত যে এই প্রোডাক্টটি মুছে ফেলতে চান?');">
-                                            <i class="fa-solid fa-trash me-1"></i> <span class="lang-bn">ডিলিট</span><span class="lang-en">Delete</span>
+                                           <i class="fa-solid fa-trash me-1"></i> <span class="lang-bn">ডিলিট</span><span class="lang-en">Delete</span>
                                         </a>
                                     </td>
                                 </tr>

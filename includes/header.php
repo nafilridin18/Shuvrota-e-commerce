@@ -17,7 +17,7 @@ if (isset($_SESSION['customer_id']) && empty($_SESSION['customer_name'])) {
     }
 }
 
-// নেভিগেশনের জন্য নিজস্ব ভ্যারিয়েবল (পেজ-লেভেল ভ্যারিয়েবলের সাথে যেন সংঘর্ষ না হয়)
+// নেভিগেশনের জন্য নিজস্ব ভ্যারিয়েবল
 $__customer_id    = $_SESSION['customer_id'] ?? 0;
 $__cart_count     = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
 $__wishlist_count = 0;

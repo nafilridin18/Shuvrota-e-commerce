@@ -102,7 +102,7 @@ include __DIR__ . '/includes/header.php';
                     </span>
                 </div>
 
-                <form action="cart.php" method="POST">
+                <form method="POST">
                     <input type="hidden" name="product_id" value="<?= $product['id'] ?>">
 
                     <div class="mb-3">
@@ -135,11 +135,14 @@ include __DIR__ . '/includes/header.php';
                     </div>
 
                     <div class="d-flex gap-2 flex-wrap">
-                        <button type="submit" class="btn btn-danger px-4 py-2 fw-bold rounded-pill shadow-sm">
+                        <button type="submit" formaction="cart.php" class="btn btn-danger px-4 py-2 fw-bold rounded-pill shadow-sm">
                             <i class="fa-solid fa-cart-plus me-2"></i> <span class="lang-bn">কার্টে যোগ করুন</span><span class="lang-en">Add to Cart</span>
                         </button>
+                        <button type="submit" formaction="checkout.php" class="btn btn-dark px-4 py-2 fw-bold rounded-pill shadow-sm">
+                            <i class="fa-solid fa-bolt me-2"></i> <span class="lang-bn">অর্ডার নাউ</span><span class="lang-en">Order Now</span>
+                        </button>
                         <a href="wishlist.php?add=<?= $product['id'] ?>" class="btn btn-outline-danger px-4 py-2 fw-bold rounded-pill shadow-sm">
-                            <i class="fa-solid fa-heart me-2"></i> <span class="lang-bn">উইশলিস্টে যোগ করুন</span><span class="lang-en">Add to Wishlist</span>
+                            <i class="fa-solid fa-heart me-2"></i> <span class="lang-bn">উইশলিস্ট</span><span class="lang-en">Wishlist</span>
                         </a>
                     </div>
                 </form>
@@ -154,7 +157,6 @@ include __DIR__ . '/includes/header.php';
     <?php endif; ?>
 </div>
 
-<!-- Lightbox Modal -->
 <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content bg-transparent border-0">

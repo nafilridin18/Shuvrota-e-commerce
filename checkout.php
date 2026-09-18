@@ -2,8 +2,43 @@
 require_once __DIR__ . '/config/session.php';
 require_once 'config/database.php';
 
-$cart = $_SESSION['cart'] ?? [];
-if (empty($cart)) {
+// --- Order Now (Direct Checkout) Logic ---
+$is_direct_checkout = false;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id']) && !isset($_POST['place_order'])) {
+    $p_id = (int)$_POST['product_id'];
+    $qty = (int)($_POST['quantity'] ?? 1);
+    $size = $_POST['size'] ?? 'Free Size';
+    $color = $_POST['color'] ?? 'Standard';
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ?");
+        $stmt->execute([$p_id]);
+        $prod = $stmt->fetch();
+        if ($prod) {
+            $price = (!empty($prod['discount_price']) && $prod['discount_price'] > 0) ? $prod['discount_price'] : $prod['price'];
+            $_SESSION['direct_cart'] = [
+                [
+                    'product_id' => $prod['id'],
+                    'title' => $prod['name'],
+                    'price' => $price,
+                    'qty' => $qty,
+                    'size' => $size,
+                    'color' => $color
+                ]
+            ];
+            $is_direct_checkout = true;
+        }
+    } catch (Exception $e) {}
+}
+
+if (isset($_SESSION['direct_cart']) && (isset($_POST['place_order']) || $is_direct_checkout)) {
+    $cart = $_SESSION['direct_cart'];
+    $is_direct_checkout = true;
+} else {
+    $cart = $_SESSION['cart'] ?? [];
+}
+
+if (empty($cart) && empty($success_order_number)) {
     header('Location: cart.php');
     exit;
 }
@@ -26,7 +61,6 @@ if (isset($_SESSION['applied_coupon'])) {
 $success_order_number = '';
 $error = '';
 
-// ডাটাবেজ থেকে কুপনগুলো ফেচ করা
 try {
     $avail_coupons = $pdo->query("SELECT * FROM coupons")->fetchAll();
 } catch (Exception $e) {
@@ -42,11 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $coupon = $stmt->fetch();
 
             if ($coupon) {
-<<<<<<< HEAD
                 $min_order_amt = $coupon['min_order'] ?? ($coupon['min_amount'] ?? ($coupon['min_order_amount'] ?? 0));
-=======
-                $min_order_amt = $coupon['min_order'] ?? ($coupon['min_amount'] ?? 0);
->>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
 
                 if ($subtotal >= $min_order_amt) {
                     $d_type = $coupon['discount_type'] ?? ($coupon['type'] ?? 'percentage');
@@ -92,13 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $stmt = $pdo->prepare("INSERT INTO orders (order_number, customer_id, guest_name, guest_phone, guest_email, shipping_name, shipping_phone, shipping_address, shipping_area_id, subtotal, discount_amount, delivery_charge, total_amount, payment_method, payment_status, status, placed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', 'pending', 'new', NOW())");
                 $stmt->execute([
-<<<<<<< HEAD
                     $order_number, $customer_id, $name, $phone, $email, $name, $phone, $address,
                     $shipping_area_id, $subtotal, $discount_amount, $shipping_cost, $total_amount
-=======
-                    $order_number, $name, $phone, $email, $name, $phone, $address,
-                    $shipping_area_id, $subtotal, $shipping_cost, $total_amount
->>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
                 ]);
                 $order_id = $pdo->lastInsertId();
 
@@ -117,7 +142,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $order_id, $p_id, $v_id, $p_title, $p_size, $p_color, $p_price, $p_qty, $line_tot
                     ]);
 
-                    // Automatically remove ordered items from wishlist if customer is logged in
                     if (!empty($customer_id)) {
                         $delWish = $pdo->prepare("DELETE FROM wishlists WHERE customer_id = ? AND product_id = ?");
                         $delWish->execute([$customer_id, $p_id]);
@@ -127,7 +151,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->commit();
                 $success_order_number = $order_number;
 
-                unset($_SESSION['cart']);
+                if ($is_direct_checkout) {
+                    unset($_SESSION['direct_cart']);
+                } else {
+                    unset($_SESSION['cart']);
+                }
                 unset($_SESSION['applied_coupon']);
 
             } catch (Exception $e) {
@@ -177,6 +205,10 @@ include __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <form method="POST">
+                <?php if($is_direct_checkout): ?>
+                    <input type="hidden" name="is_direct" value="1">
+                <?php endif; ?>
+                
                 <div class="mb-3">
                     <label class="form-label fw-bold"><span class="lang-bn">আপনার নাম</span><span class="lang-en">Your Name</span></label>
                     <input type="text" name="name" class="form-control rounded-pill" value="<?= htmlspecialchars($_SESSION['customer_name'] ?? '') ?>" required>
@@ -201,15 +233,10 @@ include __DIR__ . '/includes/header.php';
                     </select>
                 </div>
 
-                <!-- কুপন সেকশন -->
                 <div class="mb-4 p-3 border rounded-3 bg-ivory">
                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
                         <label class="form-label fw-bold small text-dark mb-0"><span class="lang-bn">কুপন কোড (যদি থাকে)</span><span class="lang-en">Coupon Code (if any)</span></label>
-<<<<<<< HEAD
                         <span class="coupon-toggle-btn cursor-pointer text-danger fw-semibold small" onclick="toggleAvailableCoupons()"><i class="fa-solid fa-gift me-1"></i><span class="lang-bn">উপলব্ধ কুপন দেখুন</span><span class="lang-en">View Available Coupons</span></span>
-=======
-                        <span class="coupon-toggle-btn" onclick="toggleAvailableCoupons()"><i class="fa-solid fa-gift me-1"></i><span class="lang-bn">উপলব্ধ কুপন দেখুন</span><span class="lang-en">View Available Coupons</span></span>
->>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
                     </div>
 
                     <div class="input-group">
@@ -221,11 +248,7 @@ include __DIR__ . '/includes/header.php';
                         <div class="small fw-bold text-danger mb-2"><span class="lang-bn">অ্যাভেইলেবল কুপন সমূহ:</span><span class="lang-en">Available Coupons:</span></div>
                         <?php if (!empty($avail_coupons)): ?>
                             <?php foreach($avail_coupons as $cp):
-<<<<<<< HEAD
                                 $min_o = $cp['min_order'] ?? ($cp['min_amount'] ?? ($cp['min_order_amount'] ?? 0));
-=======
-                                $min_o = $cp['min_order'] ?? ($cp['min_amount'] ?? 0);
->>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e
                                 $diff = $min_o - $subtotal;
                                 $d_type = $cp['discount_type'] ?? ($cp['type'] ?? 'percentage');
                                 $d_val = $cp['discount_value'] ?? ($cp['discount'] ?? ($cp['value'] ?? 0));
@@ -253,7 +276,6 @@ include __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
-                <!-- ইনভয়েস স্টাইলের টোটাল সামারি -->
                 <div class="card bg-ivory border-0 p-3 rounded-3 mb-4">
                     <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted"><span class="lang-bn">পণ্যের মোট দাম:</span><span class="lang-en">Subtotal:</span></span>
@@ -314,8 +336,4 @@ function updateTotal() {
 document.addEventListener('DOMContentLoaded', updateTotal);
 </script>
 
-<<<<<<< HEAD
 <?php include __DIR__ . '/includes/footer.php'; ?>
-=======
-<?php include __DIR__ . '/includes/footer.php'; ?>
->>>>>>> 8af7726bf706c9d8ab812b7c6ca89e01dcecdc7e

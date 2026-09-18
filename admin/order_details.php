@@ -13,12 +13,10 @@ if (!$order) {
     exit;
 }
 
-// Fetch Items
 $items_stmt = $pdo->prepare("SELECT * FROM order_items WHERE order_id = ?");
 $items_stmt->execute([$order_id]);
 $items = $items_stmt->fetchAll();
 
-// Fetch Status History
 $history_stmt = $pdo->prepare("SELECT h.*, a.name as admin_name FROM order_status_history h LEFT JOIN admins a ON h.changed_by = a.id WHERE h.order_id = ? ORDER BY h.id DESC");
 $history_stmt->execute([$order_id]);
 $history = $history_stmt->fetchAll();
@@ -26,36 +24,36 @@ $history = $history_stmt->fetchAll();
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     $new_status = $_POST['status'];
+    $new_payment_status = $_POST['payment_status']; // NEW Payment Status Handled
     $note       = trim($_POST['note'] ?? '');
     $admin_id   = $_SESSION['admin_id'] ?? null;
 
-    if ($new_status !== $order['status']) {
+    if ($new_status !== $order['status'] || $new_payment_status !== $order['payment_status']) {
         try {
             $pdo->beginTransaction();
 
-            // অর্ডার স্ট্যাটাস আপডেট
-            $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?")->execute([$new_status, $order_id]);
+            $pdo->prepare("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?")->execute([$new_status, $new_payment_status, $order_id]);
             
-            // স্ট্যাটাস হিস্ট্রি ইনসার্ট
-            $pdo->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note) VALUES (?, ?, ?, ?, ?)")
-                ->execute([$order_id, $order['status'], $new_status, $admin_id, $note]);
+            if ($new_status !== $order['status']) {
+                $pdo->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note) VALUES (?, ?, ?, ?, ?)")
+                    ->execute([$order_id, $order['status'], $new_status, $admin_id, $note]);
 
-            // যদি স্ট্যাটাস পরিবর্তন করে 'delivered' করা হয় এবং আগের স্ট্যাটাস delivered না থাকে, তবে স্টক অটো কমবে
-            if ($new_status === 'delivered' && $order['status'] !== 'delivered') {
-                foreach ($items as $item) {
-                    if (!empty($item['product_id'])) {
-                        $stockStmt = $pdo->prepare("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?");
-                        $stockStmt->execute([$item['quantity'], $item['product_id']]);
+                if ($new_status === 'delivered' && $order['status'] !== 'delivered') {
+                    foreach ($items as $item) {
+                        if (!empty($item['product_id'])) {
+                            $stockStmt = $pdo->prepare("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?");
+                            $stockStmt->execute([$item['quantity'], $item['product_id']]);
+                        }
                     }
                 }
             }
-
             $pdo->commit();
             $order['status'] = $new_status;
-            $message = "অর্ডার স্ট্যাটাস সফলভাবে আপডেট হয়েছে!";
+            $order['payment_status'] = $new_payment_status;
+            $message = "অর্ডার এবং পেমেন্ট স্ট্যাটাস সফলভাবে আপডেট হয়েছে!";
         } catch (Exception $e) {
             $pdo->rollBack();
-            $message = "স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে: " . $e->getMessage();
+            $message = "আপডেট করতে সমস্যা হয়েছে: " . $e->getMessage();
         }
     }
 }
@@ -148,17 +146,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                 <div class="card-body">
                     <form method="POST">
                         <div class="mb-3">
-                            <label class="form-label">বর্তমান স্ট্যাটাস</label>
-                            <select name="status" class="form-select" required>
-                                <option value="new" <?= $order['status'] === 'new' ? 'selected' : '' ?>>New</option>
-                                <option value="processing" <?= $order['status'] === 'processing' ? 'selected' : '' ?>>Processing</option>
-                                <option value="shipped" <?= $order['status'] === 'shipped' ? 'selected' : '' ?>>Shipped</option>
-                                <option value="delivered" <?= $order['status'] === 'delivered' ? 'selected' : '' ?>>Delivered</option>
-                                <option value="cancelled" <?= $order['status'] === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                            <label class="form-label fw-bold text-primary">পেমেন্ট স্ট্যাটাস</label>
+                            <select name="payment_status" class="form-select" required>
+                                <option value="pending" <?= $order['payment_status'] === 'pending' ? 'selected' : '' ?>>Pending (বাকি)</option>
+                                <option value="paid" <?= $order['payment_status'] === 'paid' ? 'selected' : '' ?>>Paid (পরিশোধিত)</option>
+                                <option value="failed" <?= $order['payment_status'] === 'failed' ? 'selected' : '' ?>>Failed</option>
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">নোট (ঐচ্ছিক)</label>
+                            <label class="form-label fw-bold">অর্ডার স্ট্যাটাস</label>
+<select name="status" class="form-select">
+    <option value="new" <?= $order['status'] == 'new' ? 'selected' : '' ?>>New</option>
+    <option value="processing" <?= $order['status'] == 'processing' ? 'selected' : '' ?>>Processing</option>
+    <option value="shipped" <?= $order['status'] == 'shipped' ? 'selected' : '' ?>>Shipped</option>
+    <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Delivered</option>
+    <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
+    <option value="returned" <?= $order['status'] == 'returned' ? 'selected' : '' ?>>Returned</option>
+</select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">নোট (ঐচ্ছিক)</label>
                             <textarea name="note" class="form-control" rows="2" placeholder="যেমন: পার্সেল কুরিয়ারে দেওয়া হয়েছে"></textarea>
                         </div>
                         <button type="submit" name="update_status" class="btn btn-danger w-100 fw-bold">আপডেট করুন</button>

@@ -58,6 +58,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'wishlist' && isset($_GET['id'
 $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
 $selected_category = isset($_GET['category_id']) ? intval($_GET['category_id']) : 0;
 $search_keyword = isset($_GET['search']) ? trim($_GET['search']) : '';
+$showingProductGrid = ($selected_category > 0 || !empty($search_keyword) || isset($_GET['show_products']));
 
 try {
     $cat_stmt = $pdo->query("SELECT * FROM categories");
@@ -71,8 +72,8 @@ try {
     }
 
     $products = [];
-    if ($selected_category > 0 || !empty($search_keyword) || isset($_GET['show_products'])) {
-        $query = "SELECT p.*, (SELECT image_path FROM product_images WHERE product_id = p.id LIMIT 1) as img FROM products p WHERE p.status = 'published'";
+    if ($showingProductGrid) {
+        $query = "SELECT p.*, (SELECT image_path FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1) as img FROM products p WHERE p.status = 'published'";
         $params = [];
 
         if ($selected_category > 0) {
@@ -91,16 +92,36 @@ try {
         $stmt->execute($params);
         $products = $stmt->fetchAll();
     }
+
+    $featured_products = [];
+    $best_selling_products = [];
+    if (!$showingProductGrid) {
+        // Featured Products
+        $feat_stmt = $pdo->query("SELECT p.*, (SELECT image_path FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1) as img FROM products p WHERE p.status = 'published' AND p.is_featured = 1 ORDER BY p.id DESC LIMIT 8");
+        $featured_products = $feat_stmt->fetchAll();
+
+        // Best Selling Products
+        $best_stmt = $pdo->query("SELECT p.*, (SELECT image_path FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1) as img FROM products p WHERE p.status = 'published' AND p.is_best_selling = 1 ORDER BY p.id DESC");
+        $best_selling_products = $best_stmt->fetchAll();
+    }
+
 } catch (PDOException $e) {
     $products = [];
     $categories = [];
     $site_banners = [];
+    $featured_products = [];
+    $best_selling_products = [];
 }
 
-$showingProductGrid = ($selected_category > 0 || !empty($search_keyword) || isset($_GET['show_products']));
 $pageTitle = 'শুভ্রতা - Shuvrota E-commerce';
 include __DIR__ . '/includes/header.php';
 ?>
+
+<style>
+/* Horizontal Scroll Hide Scrollbar */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
 
 <?php if ($showingProductGrid): ?>
     <!-- ================= PRODUCT LISTING ================= -->
@@ -122,16 +143,16 @@ include __DIR__ . '/includes/header.php';
                 <?php foreach ($products as $prod): ?>
                     <?php $is_in_wishlist = in_array($prod['id'], $user_wishlist_ids); ?>
                     <div class="col">
-                        <div class="card product-card h-100 position-relative">
+                        <div class="card product-card h-100 position-relative border-0 shadow-sm">
                             <a href="index.php?action=wishlist&id=<?= $prod['id'] ?><?= $selected_category > 0 ? '&category_id='.$selected_category : '' ?>"
                                class="wishlist-toggle position-absolute top-0 end-0 m-2 p-2 rounded-circle text-decoration-none z-3"
                                aria-label="উইশলিস্টে যোগ/বাদ দিন">
-                                <i class="<?= $is_in_wishlist ? 'fa-solid fa-heart' : 'fa-regular fa-heart' ?>"></i>
+                                <i class="<?= $is_in_wishlist ? 'fa-solid fa-heart text-danger' : 'fa-regular fa-heart text-dark' ?>" style="background: white; border-radius: 50%; padding: 5px;"></i>
                             </a>
                             <a href="product-details.php?id=<?= $prod['id'] ?>">
-                                <img src="<?= !empty($prod['img']) ? 'uploads/' . htmlspecialchars($prod['img']) : 'assets/images/default.jpg' ?>" class="card-img-top product-img" alt="<?= htmlspecialchars($prod['name']) ?>" loading="lazy">
+                                <img src="<?= !empty($prod['img']) ? 'uploads/' . htmlspecialchars($prod['img']) : 'assets/images/default.jpg' ?>" class="card-img-top product-img" alt="<?= htmlspecialchars($prod['name']) ?>" loading="lazy" style="height: 280px; object-fit: cover;">
                             </a>
-                            <div class="card-body d-flex flex-column">
+                            <div class="card-body d-flex flex-column text-center">
                                 <h5 class="card-title fs-6 fw-bold">
                                     <a href="product-details.php?id=<?= $prod['id'] ?>" class="text-dark text-decoration-none"><?= htmlspecialchars($prod['name']) ?></a>
                                 </h5>
@@ -143,10 +164,18 @@ include __DIR__ . '/includes/header.php';
                                         <span class="text-danger fw-bold">৳ <?= number_format($prod['price'], 2) ?></span>
                                     <?php endif; ?>
                                 </div>
-                                <a href="product-details.php?id=<?= $prod['id'] ?>" class="btn btn-outline-danger btn-sm w-100 rounded-pill">
-                                    <span class="lang-bn">বিস্তারিত দেখুন</span>
-                                    <span class="lang-en">View Details</span>
-                                </a>
+                                
+                                <!-- DIRECT ORDER NOW BUTTON -->
+                                <form action="checkout.php" method="POST" class="mt-auto">
+                                    <input type="hidden" name="product_id" value="<?= $prod['id'] ?>">
+                                    <input type="hidden" name="quantity" value="1">
+                                    <input type="hidden" name="size" value="Free Size">
+                                    <input type="hidden" name="color" value="Standard">
+                                    <button type="submit" class="btn btn-outline-danger w-100 rounded-pill fw-bold">
+                                        <span class="lang-bn">অর্ডার করুন</span>
+                                        <span class="lang-en">Order Now</span>
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -158,10 +187,6 @@ include __DIR__ . '/includes/header.php';
                         <span class="lang-bn">কোনো পণ্য পাওয়া যায়নি!</span>
                         <span class="lang-en">No products found!</span>
                     </h4>
-                    <a href="index.php" class="btn btn-danger mt-3 rounded-pill px-4">
-                        <span class="lang-bn">হোমে ফিরে যান</span>
-                        <span class="lang-en">Back to Home</span>
-                    </a>
                 </div>
             <?php endif; ?>
         </div>
@@ -225,6 +250,7 @@ include __DIR__ . '/includes/header.php';
                     $default_img = 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=600&q=80';
 
                     foreach($categories as $cat):
+                        if(!empty($cat['parent_id'])) continue;
                         $c_name = $cat['name'];
                         $s_key = 'cat_img_' . $cat['id'];
 
@@ -252,14 +278,151 @@ include __DIR__ . '/includes/header.php';
                         </div>
                     </div>
                 <?php endforeach; ?>
-            <?php else: ?>
-                <p class="text-center text-muted">
-                    <span class="lang-bn">কোনো ক্যাটাগরি পাওয়া যায়নি।</span>
-                    <span class="lang-en">No categories found.</span>
-                </p>
             <?php endif; ?>
         </div>
     </div>
+
+    <!-- ================= BEST SELLING (HORIZONTAL SCROLL) ================= -->
+    <?php if (!empty($best_selling_products)): ?>
+    <div class="container my-5 py-3" id="best-selling">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <div>
+                <h2 class="section-heading mb-1" style="text-align: left;">
+                    <span class="lang-bn">বেস্ট সেলিং প্রোডাক্টস</span>
+                    <span class="lang-en">Best Selling Products</span>
+                </h2>
+                <p class="text-muted mb-0 small">
+                    <span class="lang-bn">গ্রাহকদের সবচেয়ে পছন্দের কালেকশন</span>
+                    <span class="lang-en">Our most loved collections by customers</span>
+                </p>
+            </div>
+            <div class="d-none d-md-block">
+                <button class="btn btn-outline-dark rounded-circle me-2" onclick="scrollBestSelling('left')"><i class="fa-solid fa-chevron-left"></i></button>
+                <button class="btn btn-outline-dark rounded-circle" onclick="scrollBestSelling('right')"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+        </div>
+
+        <div class="best-selling-wrapper overflow-x-auto hide-scrollbar pb-3" id="bestSellingScroll" style="scroll-snap-type: x mandatory; scroll-behavior: smooth;">
+            <div class="d-flex gap-3">
+                <?php foreach ($best_selling_products as $prod): ?>
+                    <?php $is_in_wishlist = in_array($prod['id'], $user_wishlist_ids); ?>
+                    <div class="flex-shrink-0" style="width: 260px; scroll-snap-align: start;">
+                        <div class="card product-card h-100 position-relative border-0 shadow-sm">
+                            <span class="badge bg-danger position-absolute top-0 start-0 m-2 z-3 px-2 py-1">Hot</span>
+                            <a href="index.php?action=wishlist&id=<?= $prod['id'] ?>"
+                               class="wishlist-toggle position-absolute top-0 end-0 m-2 p-2 rounded-circle text-decoration-none z-3"
+                               aria-label="উইশলিস্টে যোগ/বাদ দিন">
+                                <i class="<?= $is_in_wishlist ? 'fa-solid fa-heart text-danger' : 'fa-regular fa-heart text-dark' ?>" style="background: white; border-radius: 50%; padding: 5px;"></i>
+                            </a>
+                            <a href="product-details.php?id=<?= $prod['id'] ?>">
+                                <img src="<?= !empty($prod['img']) ? 'uploads/' . htmlspecialchars($prod['img']) : 'assets/images/default.jpg' ?>" class="card-img-top product-img" alt="<?= htmlspecialchars($prod['name']) ?>" loading="lazy" style="height:280px; object-fit:cover;">
+                            </a>
+                            <div class="card-body d-flex flex-column text-center">
+                                <h5 class="card-title fs-6 fw-bold text-truncate">
+                                    <a href="product-details.php?id=<?= $prod['id'] ?>" class="text-dark text-decoration-none"><?= htmlspecialchars($prod['name']) ?></a>
+                                </h5>
+                                <div class="card-text mt-auto mb-3">
+                                    <?php if (!empty($prod['discount_price']) && $prod['discount_price'] > 0): ?>
+                                        <span class="text-danger fw-bold">৳ <?= number_format($prod['discount_price'], 2) ?></span>
+                                        <span class="text-muted text-decoration-line-through small ms-1">৳ <?= number_format($prod['price'], 2) ?></span>
+                                    <?php else: ?>
+                                        <span class="text-danger fw-bold">৳ <?= number_format($prod['price'], 2) ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <!-- DIRECT ORDER NOW BUTTON -->
+                                <form action="checkout.php" method="POST" class="mt-auto">
+                                    <input type="hidden" name="product_id" value="<?= $prod['id'] ?>">
+                                    <input type="hidden" name="quantity" value="1">
+                                    <input type="hidden" name="size" value="Free Size">
+                                    <input type="hidden" name="color" value="Standard">
+                                    <button type="submit" class="btn btn-outline-danger w-100 rounded-pill fw-bold">
+                                        <span class="lang-bn">অর্ডার করুন</span>
+                                        <span class="lang-en">Order Now</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+    <script>
+        function scrollBestSelling(direction) {
+            const container = document.getElementById('bestSellingScroll');
+            const scrollAmount = 280; 
+            if(direction === 'left') container.scrollLeft -= scrollAmount;
+            else container.scrollLeft += scrollAmount;
+        }
+    </script>
+    <?php endif; ?>
+
+    <!-- ================= FEATURED PRODUCTS ================= -->
+    <?php if (!empty($featured_products)): ?>
+    <div class="container my-5" id="featured-products">
+        <div class="text-center mb-5">
+            <h2 class="section-heading">
+                <span class="lang-bn">ফিচারড প্রোডাক্টস</span>
+                <span class="lang-en">Featured Products</span>
+            </h2>
+            <p class="text-muted mt-3">
+                <span class="lang-bn">আমাদের বাছাইকৃত সেরা কালেকশন</span>
+                <span class="lang-en">Our handpicked best collections</span>
+            </p>
+        </div>
+
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 g-md-4">
+            <?php foreach ($featured_products as $prod): ?>
+                <?php $is_in_wishlist = in_array($prod['id'], $user_wishlist_ids); ?>
+                <div class="col">
+                    <div class="card product-card h-100 position-relative border-0 shadow-sm">
+                        <a href="index.php?action=wishlist&id=<?= $prod['id'] ?>"
+                           class="wishlist-toggle position-absolute top-0 end-0 m-2 p-2 rounded-circle text-decoration-none z-3"
+                           aria-label="উইশলিস্টে যোগ/বাদ দিন">
+                            <i class="<?= $is_in_wishlist ? 'fa-solid fa-heart text-danger' : 'fa-regular fa-heart text-dark' ?>" style="background: white; border-radius: 50%; padding: 5px;"></i>
+                        </a>
+                        <a href="product-details.php?id=<?= $prod['id'] ?>">
+                            <img src="<?= !empty($prod['img']) ? 'uploads/' . htmlspecialchars($prod['img']) : 'assets/images/default.jpg' ?>" class="card-img-top product-img" alt="<?= htmlspecialchars($prod['name']) ?>" loading="lazy" style="height: 280px; object-fit: cover;">
+                        </a>
+                        <div class="card-body d-flex flex-column text-center">
+                            <h5 class="card-title fs-6 fw-bold">
+                                <a href="product-details.php?id=<?= $prod['id'] ?>" class="text-dark text-decoration-none"><?= htmlspecialchars($prod['name']) ?></a>
+                            </h5>
+                            <div class="card-text mt-auto mb-3">
+                                <?php if (!empty($prod['discount_price']) && $prod['discount_price'] > 0): ?>
+                                    <span class="text-danger fw-bold">৳ <?= number_format($prod['discount_price'], 2) ?></span>
+                                    <span class="text-muted text-decoration-line-through small ms-1">৳ <?= number_format($prod['price'], 2) ?></span>
+                                <?php else: ?>
+                                    <span class="text-danger fw-bold">৳ <?= number_format($prod['price'], 2) ?></span>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <!-- DIRECT ORDER NOW BUTTON -->
+                            <form action="checkout.php" method="POST" class="mt-auto">
+                                <input type="hidden" name="product_id" value="<?= $prod['id'] ?>">
+                                <input type="hidden" name="quantity" value="1">
+                                <input type="hidden" name="size" value="Free Size">
+                                <input type="hidden" name="color" value="Standard">
+                                <button type="submit" class="btn btn-outline-danger w-100 rounded-pill fw-bold">
+                                    <span class="lang-bn">অর্ডার করুন</span>
+                                    <span class="lang-en">Order Now</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        
+        <div class="text-center mt-5">
+            <a href="index.php?show_products=1" class="btn btn-outline-dark rounded-pill px-4 py-2 fw-bold">
+                <span class="lang-bn">সব প্রোডাক্ট দেখুন</span>
+                <span class="lang-en">View All Products</span>
+            </a>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- ================= TRUST STRIP ================= -->
     <div class="container mb-5">
