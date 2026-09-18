@@ -17,7 +17,7 @@ $customerId = $_SESSION['customer_id'];
 $successMessage = '';
 $errorMessage = '';
 
-// Handle Complaint Submit
+// Handle Complaint / Comment Submit
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_complaint'])) {
     $order_id = (int)$_POST['order_id'];
     $subject = trim($_POST['subject']);
@@ -26,9 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_complaint'])) 
         try {
             $stmt = $pdo->prepare("INSERT INTO complaints (customer_id, order_id, subject, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$customerId, $order_id, $subject, $desc]);
-            $successMessage = "আপনার অভিযোগটি গ্রহণ করা হয়েছে। আমরা দ্রুত ব্যবস্থা নিবো।";
+            $successMessage = "আপনার মন্তব্য বা অভিযোগটি সফলভাবে পাঠানো হয়েছে।";
         } catch (Exception $e) {
-            $errorMessage = "সমস্যা হয়েছে: " . $e->getMessage();
+            $errorMessage = "সমস্যা হয়েছে: " . $e->getMessage();
         }
     }
 }
@@ -81,9 +81,13 @@ try {
 }
 
 // Fetch Complaints
-$compStmt = $pdo->prepare("SELECT c.*, o.order_number FROM complaints c JOIN orders o ON c.order_id = o.id WHERE c.customer_id = ? ORDER BY c.created_at DESC");
-$compStmt->execute([$customerId]);
-$complaints = $compStmt->fetchAll();
+try {
+    $compStmt = $pdo->prepare("SELECT c.*, o.order_number FROM complaints c JOIN orders o ON c.order_id = o.id WHERE c.customer_id = ? ORDER BY c.created_at DESC");
+    $compStmt->execute([$customerId]);
+    $complaints = $compStmt->fetchAll();
+} catch (Exception $e) {
+    $complaints = [];
+}
 
 $pageTitle = "আমার অ্যাকাউন্ট - Shuvrota";
 include 'includes/header.php';
@@ -110,7 +114,7 @@ include 'includes/header.php';
                         <i class="fa-solid fa-bag-shopping me-2"></i> My Orders
                     </button>
                     <button class="nav-link text-start py-2 px-3 rounded-2" id="complaints-tab" data-bs-toggle="pill" data-bs-target="#complaintsContent" type="button" role="tab">
-                        <i class="fa-solid fa-headset me-2"></i> Complaints / Support
+                        <i class="fa-solid fa-headset me-2"></i> Support / Comments
                     </button>
                     <a href="logout.php" class="nav-link text-start py-2 px-3 rounded-2 text-danger fw-semibold">
                         <i class="fa-solid fa-right-from-bracket me-2"></i> Logout
@@ -194,35 +198,35 @@ include 'includes/header.php';
                                                 <td><span class="badge bg-secondary"><?= ucfirst($ord['status']) ?></span></td>
                                                 <td>
                                                     <a href="track.php?order_number=<?= htmlspecialchars($ord['order_number']) ?>" class="btn btn-sm btn-outline-dark" title="Track"><i class="fa-solid fa-truck-fast"></i></a>
-                                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#complaintModal<?= $ord['id'] ?>" title="Report Issue"><i class="fa-solid fa-triangle-exclamation"></i></button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#complaintModal<?= $ord['id'] ?>" title="Add Comment / Issue"><i class="fa-solid fa-comment-dots"></i></button>
                                                 </td>
                                             </tr>
 
                                             <div class="modal fade" id="complaintModal<?= $ord['id'] ?>" tabindex="-1">
-                                              <div class="modal-dialog">
+                                             <div class="modal-dialog">
                                                 <div class="modal-content">
                                                   <form method="POST">
-                                                      <div class="modal-header">
-                                                        <h5 class="modal-title">Report Issue for Order #<?= htmlspecialchars($ord['order_number']) ?></h5>
+                                                     <div class="modal-header">
+                                                        <h5 class="modal-title">Order Comment/Issue #<?= htmlspecialchars($ord['order_number']) ?></h5>
                                                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                      </div>
-                                                      <div class="modal-body">
+                                                     </div>
+                                                     <div class="modal-body">
                                                         <input type="hidden" name="order_id" value="<?= $ord['id'] ?>">
                                                         <div class="mb-3">
-                                                            <label class="form-label">Issue Subject</label>
-                                                            <input type="text" name="subject" class="form-control" required placeholder="e.g. Product is damaged">
+                                                            <label class="form-label">Subject / Title</label>
+                                                            <input type="text" name="subject" class="form-control" required placeholder="যেমন: সাইজ বা ডেলিভারি নিয়ে মন্তব্য">
                                                         </div>
                                                         <div class="mb-3">
-                                                            <label class="form-label">Details</label>
-                                                            <textarea name="description" class="form-control" rows="4" required></textarea>
+                                                            <label class="form-label">Details / Comment</label>
+                                                            <textarea name="description" class="form-control" rows="4" required placeholder="আপনার মন্তব্য লিখুন..."></textarea>
                                                         </div>
-                                                      </div>
-                                                      <div class="modal-footer">
-                                                        <button type="submit" name="submit_complaint" class="btn btn-danger">Submit Complaint</button>
-                                                      </div>
+                                                     </div>
+                                                     <div class="modal-footer">
+                                                        <button type="submit" name="submit_complaint" class="btn btn-danger">Submit</button>
+                                                     </div>
                                                   </form>
                                                 </div>
-                                              </div>
+                                             </div>
                                             </div>
 
                                         <?php endforeach; ?>
@@ -235,10 +239,10 @@ include 'includes/header.php';
 
                 <div class="tab-pane fade" id="complaintsContent" role="tabpanel">
                     <div class="card border-0 shadow-sm rounded-3 p-4">
-                        <h4 class="fw-bold mb-4"><i class="fa-solid fa-headset text-danger me-2"></i> My Support Tickets</h4>
+                        <h4 class="fw-bold mb-4"><i class="fa-solid fa-headset text-danger me-2"></i> My Comments / Issues</h4>
                         <?php if (empty($complaints)): ?>
                             <div class="text-center py-4">
-                                <p class="text-muted">You have no active complaints.</p>
+                                <p class="text-muted">You have no comments or complaints yet.</p>
                             </div>
                         <?php else: ?>
                             <div class="list-group">
