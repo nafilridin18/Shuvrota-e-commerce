@@ -611,35 +611,24 @@ SELECT
 FROM `orders`
 GROUP BY DATE(`placed_at`);
 
--- ২. কাস্টম কালার ও সাইজ ম্যানেজ করার জন্য নতুন টেবিল
-CREATE TABLE product_variants (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    product_id INT NOT NULL,
-    color VARCHAR(50),
-    size VARCHAR(50),
-    stock INT DEFAULT 0
-);
+-- =====================================================================
+-- 11. CUSTOMER COMPLAINTS (NEW)
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS `complaints` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `customer_id` INT UNSIGNED NOT NULL,
+    `order_id` BIGINT UNSIGNED NOT NULL,
+    `subject` VARCHAR(255) NOT NULL,
+    `description` TEXT NOT NULL,
+    `status` ENUM('pending', 'investigating', 'resolved') DEFAULT 'pending',
+    `admin_reply` TEXT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`customer_id`) REFERENCES `customers`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`order_id`) REFERENCES `orders`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+ALTER TABLE `products` ADD COLUMN `is_best_selling` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_featured`;
 
--- ৩. একটি প্রোডাক্টের মাল্টিপল ছবির জন্য নতুন টেবিল
-CREATE TABLE product_images (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    product_id INT NOT NULL,
-    image_path VARCHAR(255) NOT NULL
-);
-
--- ৪. পেমেন্ট স্ট্যাটাস পরিবর্তনের জন্য orders টেবিলে কলাম যোগ (যদি আগে থেকে না থাকে)
-ALTER TABLE orders 
-ADD COLUMN payment_status ENUM('Pending', 'Paid', 'Failed', 'Refunded') DEFAULT 'Pending';
-
--- ৫. সাব-ক্যাটাগরি তৈরির জন্য categories টেবিলে parent_id যোগ (ধরে নিচ্ছি categories টেবিল আছে)
-ALTER TABLE categories 
-ADD COLUMN parent_id INT DEFAULT NULL;
-
--- ৬. Featured প্রোডাক্ট মার্ক করার জন্য products টেবিলে কলাম যোগ
-ALTER TABLE products 
-ADD COLUMN is_featured TINYINT(1) DEFAULT 0;
-
--- Optional ১. কমপ্লেইন ম্যানেজমেন্টের জন্য নতুন টেবিল
 CREATE TABLE order_complaints (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
