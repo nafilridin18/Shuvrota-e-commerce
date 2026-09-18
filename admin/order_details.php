@@ -21,10 +21,15 @@ $history_stmt = $pdo->prepare("SELECT h.*, a.name as admin_name FROM order_statu
 $history_stmt->execute([$order_id]);
 $history = $history_stmt->fetchAll();
 
+// Fetch Complaints/Comments for this order
+$complaints_stmt = $pdo->prepare("SELECT c.*, cu.name as customer_name FROM complaints c LEFT JOIN customers cu ON c.customer_id = cu.id WHERE c.order_id = ? ORDER BY c.created_at DESC");
+$complaints_stmt->execute([$order_id]);
+$order_complaints = $complaints_stmt->fetchAll();
+
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     $new_status = $_POST['status'];
-    $new_payment_status = $_POST['payment_status']; // NEW Payment Status Handled
+    $new_payment_status = $_POST['payment_status'];
     $note       = trim($_POST['note'] ?? '');
     $admin_id   = $_SESSION['admin_id'] ?? null;
 
@@ -106,6 +111,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                 </div>
             </div>
 
+            <!-- Customer Comments / Complaints Section in a Red Box -->
+            <div class="card border-danger shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-danger text-white fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-triangle-exclamation me-2"></i> কাস্টমার কমেন্ট / অভিযোগ (Customer Feedback)</span>
+                    <span class="badge bg-white text-danger"><?= count($order_complaints) ?> টি</span>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($order_complaints)): ?>
+                        <p class="text-muted mb-0">এই অর্ডারের জন্য কাস্টমার কোনো কমেন্ট বা অভিযোগ করেননি।</p>
+                    <?php else: ?>
+                        <div class="list-group">
+                            <?php foreach ($order_complaints as $oc): ?>
+                                <div class="list-group-item border-danger rounded mb-2 bg-white">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1 fw-bold text-danger"><?= htmlspecialchars($oc['subject']) ?></h6>
+                                        <small class="text-muted"><?= date('d M Y, h:i A', strtotime($oc['created_at'])) ?></small>
+                                    </div>
+                                    <p class="mb-1 text-secondary"><?= nl2br(htmlspecialchars($oc['description'])) ?></p>
+                                    <small class="text-dark fw-semibold">কাস্টমার: <?= htmlspecialchars($oc['customer_name'] ?? 'Guest') ?></small>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
             <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-header bg-dark text-white fw-bold">স্ট্যাটাস পরিবর্তনের ইতিহাস</div>
                 <div class="card-body">
@@ -155,14 +186,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold">অর্ডার স্ট্যাটাস</label>
-<select name="status" class="form-select">
-    <option value="new" <?= $order['status'] == 'new' ? 'selected' : '' ?>>New</option>
-    <option value="processing" <?= $order['status'] == 'processing' ? 'selected' : '' ?>>Processing</option>
-    <option value="shipped" <?= $order['status'] == 'shipped' ? 'selected' : '' ?>>Shipped</option>
-    <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Delivered</option>
-    <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
-    <option value="returned" <?= $order['status'] == 'returned' ? 'selected' : '' ?>>Returned</option>
-</select>
+                            <select name="status" class="form-select">
+                                <option value="new" <?= $order['status'] == 'new' ? 'selected' : '' ?>>New</option>
+                                <option value="processing" <?= $order['status'] == 'processing' ? 'selected' : '' ?>>Processing</option>
+                                <option value="shipped" <?= $order['status'] == 'shipped' ? 'selected' : '' ?>>Shipped</option>
+                                <option value="delivered" <?= $order['status'] == 'delivered' ? 'selected' : '' ?>>Delivered</option>
+                                <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                                <option value="returned" <?= $order['status'] == 'returned' ? 'selected' : '' ?>>Returned</option>
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold">নোট (ঐচ্ছিক)</label>
