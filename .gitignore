@@ -1,0 +1,12 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.vscode/
+.idea/
+
+# Env / secrets
+.env
+
+# But DO keep uploads — we're pushing product images and videos

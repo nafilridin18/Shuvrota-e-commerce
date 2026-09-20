@@ -1,0 +1,40 @@
+# =====================================================================
+# Shuvrota — root .htaccess
+# Upload this to the SAME folder as index.php on cPanel (usually public_html,
+# or public_html/shuvrota if it lives in a subfolder).
+# =====================================================================
+
+RewriteEngine On
+
+# ---- 1. Force HTTPS -------------------------------------------------
+# %{HTTP:X-Forwarded-Proto} check matters because some cPanel setups
+# terminate SSL before Apache ever sees the request.
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# ---- 2. Security headers --------------------------------------------
+<IfModule mod_headers.c>
+    # Tell browsers to only ever contact this domain over HTTPS from now on.
+    # Only sent on HTTPS responses, so it won't break local HTTP testing.
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+
+    # Stop the browser guessing content types (blocks some XSS/upload tricks)
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Stop the site being embedded in an <iframe> on another domain (clickjacking)
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Don't leak full URLs (which may contain order tokens etc.) to other sites via Referer
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ---- 3. Block direct web access to non-web files ---------------------
+<FilesMatch "\.(sql|log|env|md|ini)$">
+    Require all denied
+</FilesMatch>
+
+# Never allow schema.sql, README.md, etc. to be downloaded directly
+<FilesMatch "^(schema\.sql|README\.md)$">
+    Require all denied
+</FilesMatch>
