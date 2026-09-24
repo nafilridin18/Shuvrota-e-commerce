@@ -1,15 +1,57 @@
 <?php
 require_once __DIR__ . '/config/session.php';
 require_once 'config/database.php';
+
 $orders = [];
 $searched = false;
+$rateLimited = false;
+$errorMsg = '';
 
-if (isset($_GET['order_number']) && !empty(trim($_GET['order_number']))) {
-    $searched = true;
-    $search = trim($_GET['order_number']);
-    $stmt = $pdo->prepare("SELECT * FROM orders WHERE order_number = ? OR shipping_phone = ? ORDER BY id DESC");
-    $stmt->execute([$search, $search]);
-    $orders = $stmt->fetchAll();
+const TRACK_MAX_ATTEMPTS_PER_WINDOW = 5;
+const TRACK_WINDOW_SECONDS = 60;
+
+function client_ip(): string
+{
+    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['order_number']) && isset($_GET['phone'])) {
+    $orderNumber = trim($_GET['order_number']);
+    $phone       = trim($_GET['phone']);
+
+    if ($orderNumber !== '' && $phone !== '') {
+        $searched = true;
+        $ip = client_ip();
+
+        // ---- Rate limit: max TRACK_MAX_ATTEMPTS_PER_WINDOW lookups per IP per minute ----
+        $countStmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM order_track_attempts WHERE ip_address = ? AND attempted_at > (NOW() - INTERVAL ? SECOND)"
+        );
+        $countStmt->execute([$ip, TRACK_WINDOW_SECONDS]);
+        $recentAttempts = (int) $countStmt->fetchColumn();
+
+        if ($recentAttempts >= TRACK_MAX_ATTEMPTS_PER_WINDOW) {
+            $rateLimited = true;
+        } else {
+            // Log this attempt regardless of outcome (so brute-forcing pairs is also throttled)
+            $pdo->prepare("INSERT INTO order_track_attempts (ip_address) VALUES (?)")->execute([$ip]);
+
+            // Occasionally prune old rows so this table doesn't grow forever
+            if (random_int(1, 50) === 1) {
+                $pdo->exec("DELETE FROM order_track_attempts WHERE attempted_at < (NOW() - INTERVAL 1 DAY)");
+            }
+
+            // Both order_number AND shipping_phone must match the SAME order.
+            // (Previously this was OR'd on phone alone, which let anyone page
+            // through BD mobile numbers and scrape every customer's name,
+            // phone and full address with no login at all.)
+            $stmt = $pdo->prepare("SELECT * FROM orders WHERE order_number = ? AND shipping_phone = ? ORDER BY id DESC");
+            $stmt->execute([$orderNumber, $phone]);
+            $orders = $stmt->fetchAll();
+        }
+    } else {
+        $errorMsg = 'অর্ডার নম্বর এবং মোবাইল নম্বর উভয়ই দিতে হবে।';
+    }
 }
 
 $pageTitle = 'অর্ডার ট্র্যাকিং - শুভ্রতা';
@@ -24,18 +66,38 @@ include __DIR__ . '/includes/header.php';
 
     <div class="card p-4 border-0 shadow-sm rounded-4 mb-4">
         <form method="GET">
-            <div class="input-group input-group-lg">
-                <input type="text" name="order_number" class="form-control" placeholder="অর্ডার নম্বর বা মোবাইল নম্বর দিন" value="<?= isset($_GET['order_number']) ? htmlspecialchars($_GET['order_number']) : '' ?>" required>
-                <button class="btn btn-danger" type="submit">
-                    <span class="lang-bn">ট্র্যাক করুন</span>
-                    <span class="lang-en">Track</span>
-                </button>
+            <div class="mb-3">
+                <label class="form-label small text-muted">
+                    <span class="lang-bn">অর্ডার নম্বর</span><span class="lang-en">Order Number</span>
+                </label>
+                <input type="text" name="order_number" class="form-control form-control-lg" placeholder="SHV-20260901-0001" value="<?= isset($_GET['order_number']) ? htmlspecialchars($_GET['order_number']) : '' ?>" required>
             </div>
+            <div class="mb-3">
+                <label class="form-label small text-muted">
+                    <span class="lang-bn">মোবাইল নম্বর</span><span class="lang-en">Mobile Number</span>
+                </label>
+                <input type="text" name="phone" class="form-control form-control-lg" placeholder="01XXXXXXXXX" value="<?= isset($_GET['phone']) ? htmlspecialchars($_GET['phone']) : '' ?>" required>
+            </div>
+            <div class="small text-muted mb-3">
+                <span class="lang-bn">উভয় তথ্য আপনার অর্ডার কনফার্মেশন এসএমএস/ইমেইলে পাবেন।</span>
+                <span class="lang-en">You'll find both in your order confirmation SMS/email.</span>
+            </div>
+            <button class="btn btn-danger w-100 btn-lg" type="submit">
+                <span class="lang-bn">ট্র্যাক করুন</span>
+                <span class="lang-en">Track</span>
+            </button>
         </form>
     </div>
 
-    <?php if(!empty($orders)): ?>
-        <?php foreach($orders as $order): ?>
+    <?php if ($rateLimited): ?>
+        <div class="alert alert-warning text-center">
+            <span class="lang-bn">অনেকবার চেষ্টা করা হয়েছে। এক মিনিট পর আবার চেষ্টা করুন।</span>
+            <span class="lang-en">Too many attempts. Please wait a minute and try again.</span>
+        </div>
+    <?php elseif ($errorMsg): ?>
+        <div class="alert alert-danger text-center"><?= htmlspecialchars($errorMsg) ?></div>
+    <?php elseif (!empty($orders)): ?>
+        <?php foreach ($orders as $order): ?>
             <?php
                 $status = strtolower(trim($order['status']));
                 $badgeBg = 'bg-secondary';
@@ -76,10 +138,10 @@ include __DIR__ . '/includes/header.php';
                 </div>
             </div>
         <?php endforeach; ?>
-    <?php elseif($searched): ?>
+    <?php elseif ($searched): ?>
         <div class="alert alert-danger text-center">
-            <span class="lang-bn">কোনো অর্ডার খুঁজে পাওয়া যায়নি!</span>
-            <span class="lang-en">No order found!</span>
+            <span class="lang-bn">কোনো অর্ডার খুঁজে পাওয়া যায়নি! অর্ডার নম্বর ও মোবাইল নম্বর ঠিক আছে কিনা যাচাই করুন।</span>
+            <span class="lang-en">No matching order found! Please check both the order number and mobile number.</span>
         </div>
     <?php endif; ?>
 </div>

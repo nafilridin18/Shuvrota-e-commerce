@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/session.php';
 require_once 'auth_check.php';
 require_once '../config/database.php';
+require_once __DIR__ . '/../includes/upload_validator.php';
 
 $product_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
@@ -18,6 +19,7 @@ $message = '';
 $messageType = 'info';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
     $name            = trim($_POST['name']);
     $name_bn         = trim($_POST['name_bn'] ?? '');
     $category_id     = (int)$_POST['category_id'];
@@ -42,15 +44,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (isset($_FILES['images']) && !empty($_FILES['images']['name'][0])) {
             $upload_dir = __DIR__ . '/../uploads/';
-            $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
             $totalFiles = count($_FILES['images']['name']);
 
             for ($i = 0; $i < $totalFiles; $i++) {
                 if ($_FILES['images']['error'][$i] === UPLOAD_ERR_OK) {
-                    $ext = strtolower(pathinfo($_FILES['images']['name'][$i], PATHINFO_EXTENSION));
-                    if (in_array($ext, $allowed)) {
-                        $new_filename = time() . '_' . rand(1000, 9999) . '_' . $i . '.' . $ext;
-                        if (move_uploaded_file($_FILES['images']['tmp_name'][$i], $upload_dir . $new_filename)) {
+                    $oneFile = [
+                        'name'     => $_FILES['images']['name'][$i],
+                        'tmp_name' => $_FILES['images']['tmp_name'][$i],
+                        'size'     => $_FILES['images']['size'][$i],
+                    ];
+                    $check = validate_uploaded_file($oneFile, UPLOAD_IMAGE_TYPES);
+                    if ($check['valid']) {
+                        $new_filename = time() . '_' . rand(1000, 9999) . '_' . $i . '.' . $check['ext'];
+                        if (move_uploaded_file($oneFile['tmp_name'], $upload_dir . $new_filename)) {
                             $chk = $pdo->prepare("SELECT count(*) FROM product_images WHERE product_id = ? AND is_primary = 1");
                             $chk->execute([$product_id]);
                             $is_primary = ($chk->fetchColumn() == 0) ? 1 : 0;
@@ -97,7 +103,9 @@ if (isset($_GET['delete_image'])) {
     $img_row = $del->fetch();
     if ($img_row) {
         $path = __DIR__ . '/../uploads/' . $img_row['image_path'];
-        if (file_exists($path)) @unlink($path);
+        if (file_exists($path) && !@unlink($path)) {
+            error_log("Could not delete product image file: {$path}");
+        }
         $pdo->prepare("DELETE FROM product_images WHERE id = ? AND product_id = ?")->execute([$img_id, $product_id]);
     }
     header("Location: edit_product.php?id=" . $product_id);
@@ -149,6 +157,7 @@ include 'includes/header.php';
     </div>
     <div class="admin-card-body">
         <form method="POST" enctype="multipart/form-data">
+            <?= csrf_field() ?>
 
             <div class="mb-3">
                 <label class="form-label">Product Name (English) *</label>

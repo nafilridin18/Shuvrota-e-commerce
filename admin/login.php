@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../config/session.php';
 require_once '../config/database.php';
+require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/login_rate_limit.php';
+require_once __DIR__ . '/../includes/otp.php';
 
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
     header('Location: index.php');
@@ -16,27 +19,47 @@ try {
 } catch (Exception $e) {}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
+
     $email    = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
     if ($email !== '' && $password !== '') {
-        $stmt = $pdo->prepare("SELECT * FROM admins WHERE email = ? AND is_active = 1");
-        $stmt->execute([$email]);
-        $admin = $stmt->fetch();
-
-        if ($admin && password_verify($password, $admin['password_hash'])) {
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_id']        = $admin['id'];
-            $_SESSION['admin_name']      = $admin['name'];
-            $_SESSION['admin_email']     = $admin['email'];
-
-            $pdo->prepare("UPDATE admins SET last_login_at = NOW(), last_login_ip = ? WHERE id = ?")
-                ->execute([$_SERVER['REMOTE_ADDR'] ?? null, $admin['id']]);
-
-            header('Location: index.php');
-            exit;
+        if (login_is_locked_out($pdo, $email, true)) {
+            $error = login_lockout_message();
         } else {
-            $error = 'ভুল ইমেইল অথবা পাসওয়ার্ড!';
+            $stmt = $pdo->prepare("SELECT * FROM admins WHERE email = ? AND is_active = 1");
+            $stmt->execute([$email]);
+            $admin = $stmt->fetch();
+
+            if ($admin && password_verify($password, $admin['password_hash'])) {
+                login_record_attempt($pdo, $email, true, true);
+
+                if (!empty($admin['two_factor_enabled'])) {
+                    // Password correct, but don't log in yet — send an
+                    // email OTP and finish authentication on verify_otp.php.
+                    if (otp_start_challenge($admin)) {
+                        header('Location: verify_otp.php');
+                        exit;
+                    } else {
+                        $error = 'যাচাইকরণ কোড পাঠাতে সমস্যা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।';
+                    }
+                } else {
+                    $_SESSION['admin_logged_in'] = true;
+                    $_SESSION['admin_id']        = $admin['id'];
+                    $_SESSION['admin_name']      = $admin['name'];
+                    $_SESSION['admin_email']     = $admin['email'];
+
+                    $pdo->prepare("UPDATE admins SET last_login_at = NOW(), last_login_ip = ? WHERE id = ?")
+                        ->execute([$_SERVER['REMOTE_ADDR'] ?? null, $admin['id']]);
+
+                    header('Location: index.php');
+                    exit;
+                }
+            } else {
+                login_record_attempt($pdo, $email, true, false);
+                $error = 'ভুল ইমেইল অথবা পাসওয়ার্ড!';
+            }
         }
     } else {
         $error = 'সবগুলো ঘর পূরণ করুন।';
@@ -77,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="POST" autocomplete="off">
+            <?= csrf_field() ?>
             <div class="mb-3">
                 <label class="form-label">Email Address</label>
                 <input type="email" name="email" class="form-control" placeholder="you@example.com" required>

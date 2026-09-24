@@ -8,6 +8,7 @@ $messageType = 'info';
 
 /* -------- ADD CATEGORY -------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_category'])) {
+    csrf_require();
     $name = trim($_POST['name']);
     $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : NULL;
     $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $name)) . '-' . rand(10, 999);
@@ -18,13 +19,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_category'])) {
         $message = "ক্যাটাগরি সফলভাবে যুক্ত হয়েছে।";
         $messageType = 'success';
     } catch (Exception $e) {
-        $message = "ত্রুটি: " . $e->getMessage();
+        error_log('category add error: ' . $e->getMessage());
+        $message = "ক্যাটাগরি যুক্ত করতে সমস্যা হয়েছে।";
         $messageType = 'danger';
     }
 }
 
 /* -------- UPDATE CATEGORY -------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_category'])) {
+    csrf_require();
     $cid       = (int)$_POST['category_id'];
     $name      = trim($_POST['name']);
     $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : NULL;
@@ -42,7 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_category'])) {
             $message = "ক্যাটাগরি সফলভাবে আপডেট হয়েছে।";
             $messageType = 'success';
         } catch (Exception $e) {
-            $message = "ত্রুটি: " . $e->getMessage();
+            error_log('category update error: ' . $e->getMessage());
+            $message = "ক্যাটাগরি আপডেট করতে সমস্যা হয়েছে।";
             $messageType = 'danger';
         }
     }
@@ -58,12 +62,18 @@ if (isset($_GET['toggle'])) {
 
 /* -------- DELETE -------- */
 if (isset($_GET['delete'])) {
+    if (!csrf_verify($_GET['csrf_token'] ?? null)) {
+        $_SESSION['msg'] = "নিরাপত্তা যাচাই ব্যর্থ হয়েছে, পাতাটি রিফ্রেশ করে আবার চেষ্টা করুন।";
+        header('Location: manage_catagories.php');
+        exit;
+    }
     $cid = (int)$_GET['delete'];
     try {
         $pdo->prepare("DELETE FROM categories WHERE id = ?")->execute([$cid]);
         $_SESSION['msg'] = "ক্যাটাগরি মুছে ফেলা হয়েছে।";
     } catch (Exception $e) {
-        $_SESSION['msg'] = "ক্যাটাগরি মুছতে সমস্যা: " . $e->getMessage();
+        error_log('category delete error: ' . $e->getMessage());
+        $_SESSION['msg'] = "ক্যাটাগরি মুছতে সমস্যা হয়েছে।";
     }
     header('Location: manage_catagories.php');
     exit;
@@ -105,6 +115,7 @@ include 'includes/header.php';
             </div>
             <div class="admin-card-body">
                 <form method="POST">
+                    <?= csrf_field() ?>
                     <div class="mb-3">
                         <label class="form-label">Category Name *</label>
                         <input type="text" name="name" class="form-control" required>
@@ -197,7 +208,7 @@ include 'includes/header.php';
                                             title="Edit">
                                         <i class="fa-solid fa-pen"></i>
                                     </button>
-                                    <a href="?delete=<?= $c['id'] ?>"
+                                    <a href="?delete=<?= $c['id'] ?>&csrf_token=<?= urlencode(csrf_token()) ?>"
                                        class="admin-btn admin-btn-sm"
                                        style="background:#fee; color:#c62828; border:1.5px solid #c62828;"
                                        onclick="return confirm('Delete this category? Products in this category will lose their category link.');">
@@ -219,6 +230,7 @@ include 'includes/header.php';
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content" style="border-radius: 18px; border: none; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.3);">
             <form method="POST">
+                    <?= csrf_field() ?>
                 <input type="hidden" name="update_category" value="1">
                 <input type="hidden" name="category_id" id="editCatId">
 

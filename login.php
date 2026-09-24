@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/config/session.php';
 require_once 'config/database.php';
+require_once __DIR__ . '/includes/csrf.php';
+require_once __DIR__ . '/includes/login_rate_limit.php';
 
 if (isset($_SESSION['customer_id'])) {
     header('Location: index.php');
@@ -10,22 +12,30 @@ if (isset($_SESSION['customer_id'])) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
+
     $phone    = trim($_POST['phone'] ?? '');
     $password = $_POST['password'] ?? '';
 
     if ($phone !== '' && $password !== '') {
-        $stmt = $pdo->prepare("SELECT * FROM customers WHERE phone = ? AND is_active = 1");
-        $stmt->execute([$phone]);
-        $customer = $stmt->fetch();
-
-        if ($customer && $customer['password_hash'] && password_verify($password, $customer['password_hash'])) {
-            $_SESSION['customer_id']    = $customer['id'];
-            $_SESSION['customer_name']  = $customer['name'];
-            $_SESSION['customer_phone'] = $customer['phone'];
-            header('Location: index.php');
-            exit;
+        if (login_is_locked_out($pdo, $phone, false)) {
+            $error = login_lockout_message();
         } else {
-            $error = "মোবাইল নম্বর অথবা পাসওয়ার্ড ভুল হয়েছে!";
+            $stmt = $pdo->prepare("SELECT * FROM customers WHERE phone = ? AND is_active = 1");
+            $stmt->execute([$phone]);
+            $customer = $stmt->fetch();
+
+            if ($customer && $customer['password_hash'] && password_verify($password, $customer['password_hash'])) {
+                login_record_attempt($pdo, $phone, false, true);
+                $_SESSION['customer_id']    = $customer['id'];
+                $_SESSION['customer_name']  = $customer['name'];
+                $_SESSION['customer_phone'] = $customer['phone'];
+                header('Location: index.php');
+                exit;
+            } else {
+                login_record_attempt($pdo, $phone, false, false);
+                $error = "মোবাইল নম্বর অথবা পাসওয়ার্ড ভুল হয়েছে!";
+            }
         }
     } else {
         $error = "সবগুলো ঘর পূরণ করুন।";
@@ -79,6 +89,7 @@ include __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <form method="POST" autocomplete="on">
+                <?= csrf_field() ?>
                 <div class="auth-field">
                     <input type="text" name="phone" id="loginPhone" placeholder=" " required autocomplete="tel">
                     <label for="loginPhone">

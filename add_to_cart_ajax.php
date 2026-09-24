@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/config/session.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -15,6 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['product_id'])) {
     echo json_encode(['success' => false, 'message' => 'Invalid request']);
     exit;
 }
+
+csrf_require();
 
 $product_id = (int)$_POST['product_id'];
 $qty        = max(1, (int)($_POST['quantity'] ?? 1));

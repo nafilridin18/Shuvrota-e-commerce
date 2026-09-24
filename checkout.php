@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/config/session.php';
 require_once 'config/database.php';
+require_once __DIR__ . '/includes/coupon_helper.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 // --- Order Now (Direct Checkout) Logic ---
 $is_direct_checkout = false;
@@ -45,6 +47,41 @@ if (empty($cart) && empty($success_order_number)) {
     exit;
 }
 
+// M-4: prices were only ever saved into the session once, when an item
+// was added to the cart. If an admin changed a product's price (or its
+// discount) afterward, the customer's cart kept the old number all the
+// way to checkout. Re-fetch current prices from the DB here so the
+// displayed total — and the total actually charged — always reflects
+// today's price.
+if (!empty($cart)) {
+    $ids = [];
+    foreach ($cart as $item) {
+        $pid = (int)($item['product_id'] ?? $item['id'] ?? 0);
+        if ($pid > 0) $ids[$pid] = true;
+    }
+    if (!empty($ids)) {
+        $idList = implode(',', array_map('intval', array_keys($ids)));
+        $priceRows = $pdo->query("SELECT id, price, discount_price FROM products WHERE id IN ($idList)")->fetchAll(PDO::FETCH_ASSOC);
+        $livePrices = [];
+        foreach ($priceRows as $row) {
+            $livePrices[(int)$row['id']] = (!empty($row['discount_price']) && $row['discount_price'] > 0 && $row['discount_price'] < $row['price'])
+                ? (float)$row['discount_price']
+                : (float)$row['price'];
+        }
+
+        $sessionKey = $is_direct_checkout ? 'direct_cart' : 'cart';
+        foreach ($cart as $key => $item) {
+            $pid = (int)($item['product_id'] ?? $item['id'] ?? 0);
+            if (isset($livePrices[$pid])) {
+                $cart[$key]['price'] = $livePrices[$pid];
+                if (isset($_SESSION[$sessionKey][$key])) {
+                    $_SESSION[$sessionKey][$key]['price'] = $livePrices[$pid];
+                }
+            }
+        }
+    }
+}
+
 $subtotal = 0;
 foreach ($cart as $item) {
     $price = $item['price'] ?? 0;
@@ -55,9 +92,17 @@ foreach ($cart as $item) {
 $discount_amount = 0;
 $applied_coupon_code = '';
 
-if (isset($_SESSION['applied_coupon'])) {
-    $discount_amount     = $_SESSION['applied_coupon']['discount'];
-    $applied_coupon_code = $_SESSION['applied_coupon']['code'];
+if (isset($_SESSION['applied_coupon']['code'])) {
+    $preview = validate_and_calculate_coupon($pdo, $_SESSION['applied_coupon']['code'], $subtotal, $_SESSION['customer_id'] ?? null);
+    if ($preview['valid']) {
+        $discount_amount     = $preview['discount'];
+        $applied_coupon_code = $preview['coupon']['code'];
+    } else {
+        // Coupon no longer applies to the current cart (expired, cart shrank
+        // below min_order_amount, etc.) — drop it instead of silently
+        // showing a discount that wouldn't survive order placement.
+        unset($_SESSION['applied_coupon']);
+    }
 }
 
 $error = '';
@@ -69,6 +114,9 @@ try {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['apply_coupon']) || isset($_POST['place_order'])) {
+        csrf_require();
+    }
     /* =====================================================================
        NO-JS FALLBACK — coupon apply via full form submission.
        With JS on, footer.php intercepts the click and calls
@@ -77,32 +125,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['apply_coupon'])) {
         $coupon_code = trim($_POST['coupon_code'] ?? '');
         try {
-            $stmt = $pdo->prepare("SELECT * FROM coupons WHERE code = ?");
-            $stmt->execute([$coupon_code]);
-            $coupon = $stmt->fetch();
+            $result = validate_and_calculate_coupon($pdo, $coupon_code, $subtotal, $_SESSION['customer_id'] ?? null);
 
-            if ($coupon) {
-                $min_order_amt = $coupon['min_order_amount'] ?? 0;
-
-                if ($subtotal >= $min_order_amt) {
-                    $d_type = $coupon['type'] ?? 'percentage';
-                    $d_val  = $coupon['value'] ?? 0;
-
-                    if ($d_type === 'percentage') {
-                        $discount_amount = ($subtotal * $d_val) / 100;
-                    } else {
-                        $discount_amount = $d_val;
-                    }
-                    $_SESSION['applied_coupon'] = [
-                        'code'     => $coupon['code'],
-                        'discount' => $discount_amount
-                    ];
-                    $applied_coupon_code = $coupon['code'];
-                } else {
-                    $error = "এই কুপনের জন্য সর্বনিম্ন অর্ডার ৳ " . $min_order_amt . " হতে হবে।";
-                }
+            if ($result['valid']) {
+                $_SESSION['applied_coupon'] = ['code' => $result['coupon']['code']];
+                $applied_coupon_code = $result['coupon']['code'];
+                $discount_amount     = $result['discount'];
             } else {
-                $error = "ভুল কুপন কোড!";
+                $error = $result['message'];
             }
         } catch (Exception $e) {
             $error = "কুপন এপ্লাই করতে সমস্যা হয়েছে।";
@@ -118,12 +148,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $shipping_cost    = ($area === 'outside') ? 130.00 : 70.00;
         $shipping_area_id = ($area === 'outside') ? 2 : 1;
 
-        // Re-read the coupon from session to get the freshest discount
-        if (isset($_SESSION['applied_coupon'])) {
-            $discount_amount = (float)$_SESSION['applied_coupon']['discount'];
+        // Re-derive the discount from the coupon CODE against the CURRENT
+        // cart subtotal — never trust a discount amount saved earlier in
+        // the session. This is the fix for C-5: previously a fixed session
+        // amount was reused even after the cart shrank, which could push
+        // total_amount negative.
+        $coupon_id = null;
+        if (isset($_SESSION['applied_coupon']['code'])) {
+            $result = validate_and_calculate_coupon($pdo, $_SESSION['applied_coupon']['code'], $subtotal, $_SESSION['customer_id'] ?? null);
+            if ($result['valid']) {
+                $discount_amount = $result['discount'];
+                $coupon_id       = (int)$result['coupon']['id'];
+            } else {
+                // No longer valid for this cart (changed since it was applied) — drop it, don't block the order.
+                $discount_amount = 0;
+                unset($_SESSION['applied_coupon']);
+            }
         }
 
-        $total_amount = ($subtotal - $discount_amount) + $shipping_cost;
+        // Never let a coupon push the total below zero, no matter what.
+        $total_amount = max(0, $subtotal - $discount_amount) + $shipping_cost;
 
         if (!empty($name) && !empty($phone) && !empty($address)) {
             try {
@@ -132,10 +176,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $order_number = 'SHV-' . date('Ymd') . '-' . rand(1000, 9999);
                 $customer_id  = $_SESSION['customer_id'] ?? null;
 
-                $stmt = $pdo->prepare("INSERT INTO orders (order_number, customer_id, guest_name, guest_phone, guest_email, shipping_name, shipping_phone, shipping_address, shipping_area_id, subtotal, discount_amount, delivery_charge, total_amount, payment_method, payment_status, status, placed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', 'pending', 'new', NOW())");
+                $stmt = $pdo->prepare("INSERT INTO orders (order_number, customer_id, guest_name, guest_phone, guest_email, shipping_name, shipping_phone, shipping_address, shipping_area_id, subtotal, discount_amount, delivery_charge, total_amount, coupon_id, payment_method, payment_status, status, placed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', 'pending', 'new', NOW())");
                 $stmt->execute([
                     $order_number, $customer_id, $name, $phone, $email, $name, $phone, $address,
-                    $shipping_area_id, $subtotal, $discount_amount, $shipping_cost, $total_amount
+                    $shipping_area_id, $subtotal, $discount_amount, $shipping_cost, $total_amount, $coupon_id
                 ]);
                 $order_id = $pdo->lastInsertId();
 
@@ -160,6 +204,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                // Record coupon usage so usage_limit / usage_limit_per_customer
+                // are actually enforceable next time (previously used_count
+                // was never incremented, making the limit meaningless).
+                if ($coupon_id !== null) {
+                    $pdo->prepare("UPDATE coupons SET used_count = used_count + 1 WHERE id = ?")->execute([$coupon_id]);
+                    $pdo->prepare("INSERT INTO coupon_usages (coupon_id, customer_id, order_id) VALUES (?, ?, ?)")
+                        ->execute([$coupon_id, $customer_id, $order_id]);
+                }
+
                 $pdo->commit();
                 $success_order_number = $order_number;
 
@@ -172,7 +225,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             } catch (Exception $e) {
                 $pdo->rollBack();
-                $error = "অর্ডার সম্পন্ন করতে সমস্যা হয়েছে: " . $e->getMessage();
+                error_log('checkout place_order error: ' . $e->getMessage());
+                $error = "অর্ডার সম্পন্ন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।";
             }
         } else {
             $error = "অনুগ্রহ করে সব প্রয়োজনীয় তথ্য পূরণ করুন।";
@@ -260,6 +314,7 @@ include __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <form method="POST" id="checkoutForm">
+            <?= csrf_field() ?>
             <?php if ($is_direct_checkout): ?>
                 <input type="hidden" name="is_direct" value="1">
             <?php endif; ?>
@@ -538,6 +593,8 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 <script>
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
 /* =====================================================================
    STATE
    ===================================================================== */
@@ -671,7 +728,7 @@ function applyCouponAjax() {
     fetch('apply_coupon_ajax.php', {
         method: 'POST',
         body: fd,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': CSRF_TOKEN }
     })
         .then(r => r.json())
         .then(data => {
@@ -712,7 +769,7 @@ function removeCouponAjax() {
     fetch('apply_coupon_ajax.php', {
         method: 'POST',
         body: fd,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': CSRF_TOKEN }
     })
         .then(r => r.json())
         .then(data => {

@@ -1,8 +1,15 @@
 <?php
 require_once __DIR__ . '/../config/session.php';
+require_once 'auth_check.php';
 require_once '../config/database.php';
 
 $product_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+if ($product_id > 0 && !csrf_verify($_GET['csrf_token'] ?? null)) {
+    $_SESSION['msg'] = "নিরাপত্তা যাচাই ব্যর্থ হয়েছে, পাতাটি রিফ্রেশ করে আবার চেষ্টা করুন।";
+    header('Location: index.php');
+    exit;
+}
 
 if ($product_id > 0) {
     try {
@@ -16,7 +23,9 @@ if ($product_id > 0) {
         foreach ($images as $img) {
             $file_path = __DIR__ . '/../uploads/' . $img['image_path'];
             if (!empty($img['image_path']) && file_exists($file_path)) {
-                @unlink($file_path);
+                if (!@unlink($file_path)) {
+                    error_log("Could not delete product image file: {$file_path}");
+                }
             }
         }
 
@@ -34,7 +43,8 @@ if ($product_id > 0) {
         $_SESSION['msg'] = "Product deleted successfully!";
     } catch (Exception $e) {
         $pdo->rollBack();
-        $_SESSION['msg'] = "Error deleting product: " . $e->getMessage();
+        error_log('product delete error: ' . $e->getMessage());
+        $_SESSION['msg'] = "প্রোডাক্ট মুছতে সমস্যা হয়েছে।";
     }
 }
 

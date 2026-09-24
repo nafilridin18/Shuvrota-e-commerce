@@ -574,9 +574,10 @@ INSERT INTO `role_permissions` (`role_id`, `permission_id`)
 INSERT INTO `role_permissions` (`role_id`, `permission_id`)
     SELECT 3, id FROM `permissions` WHERE `name` IN ('products.manage','orders.manage');
 
--- Default Super Admin (Email: admin@shuvrota.com / Password: 123456)
-INSERT INTO `admins` (`role_id`, `name`, `email`, `phone`, `password_hash`, `is_active`) VALUES
-    (1, 'Super Admin', 'admin@shuvrota.com', '01700000000', '$2b$10$kj6Gie9QPgYRFrne6K6FDOYJyKXoYguCpRuw6uhis38DOAZ2k7hFK', 1);
+-- Default Super Admin (Email: admin@shuvrota.com / Password: ChangeMeNow!2026 — change immediately after first login)
+-- two_factor_enabled = 1: an email OTP code is required at every login. Turn off from Admin > Two-Factor Settings if not wanted.
+INSERT INTO `admins` (`role_id`, `name`, `email`, `phone`, `password_hash`, `is_active`, `two_factor_enabled`) VALUES
+    (1, 'Super Admin', 'admin@shuvrota.com', '01700000000', '$2b$10$kj6Gie9QPgYRFrne6K6FDOYJyKXoYguCpRuw6uhis38DOAZ2k7hFK', 1, 1);
 
 INSERT INTO `delivery_areas` (`area_name`, `delivery_charge`, `estimated_days`) VALUES
     ('Inside Dhaka', 70.00, '1-2 days'),
@@ -629,11 +630,12 @@ CREATE TABLE IF NOT EXISTS `complaints` (
 ) ENGINE=InnoDB;
 ALTER TABLE `products` ADD COLUMN `is_best_selling` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_featured`;
 
-CREATE TABLE order_complaints (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_id INT NOT NULL,
-    customer_id INT NOT NULL,
-    complaint_text TEXT NOT NULL,
-    status ENUM('Pending', 'Reviewed', 'Resolved') DEFAULT 'Pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- =====================================================================
+-- 12. ORDER TRACKING RATE LIMIT (prevents scraping customer PII via track.php)
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS `order_track_attempts` (
+    `id`           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `ip_address`   VARCHAR(45) NOT NULL,
+    `attempted_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_ip_time` (`ip_address`, `attempted_at`)
+) ENGINE=InnoDB;

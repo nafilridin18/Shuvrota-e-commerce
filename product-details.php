@@ -9,6 +9,14 @@ try {
     $stmt->execute([$product_id]);
     $product = $stmt->fetch();
 
+    // M-1: draft/archived products were correctly hidden from index.php's
+    // listing, but still fully viewable by guessing the URL. Only an
+    // authenticated admin (previewing before publishing) can see one now.
+    $isAdminPreview = !empty($_SESSION['admin_logged_in']);
+    if ($product && $product['status'] !== 'published' && !$isAdminPreview) {
+        $product = null;
+    }
+
     $imgStmt = $pdo->prepare("SELECT * FROM product_images WHERE product_id = ?");
     $imgStmt->execute([$product_id]);
     $images = $imgStmt->fetchAll();

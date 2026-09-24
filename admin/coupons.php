@@ -7,6 +7,7 @@ $message = '';
 $messageType = 'info';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_coupon'])) {
+    csrf_require();
     $code       = strtoupper(trim($_POST['code']));
     $type       = $_POST['type'];
     $value      = (float)$_POST['value'];
@@ -68,6 +69,7 @@ include 'includes/header.php';
             </div>
             <div class="admin-card-body">
                 <form method="POST">
+                    <?= csrf_field() ?>
                     <div class="mb-3">
                         <label class="form-label">Coupon Code *</label>
                         <input type="text" name="code" class="form-control" placeholder="e.g. SHUVRO10" required style="text-transform: uppercase;">

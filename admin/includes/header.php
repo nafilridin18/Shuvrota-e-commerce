@@ -25,6 +25,7 @@ $__nav_items = [
     'customers'  => ['customers.php',          'fa-users',        'Customers',  'কাস্টমার'],
     'categories' => ['manage_catagories.php',  'fa-layer-group',  'Categories', 'ক্যাটাগরি'],
     'banners'    => ['banner_settings.php',    'fa-image',        'Banners & Logo','ব্যানার ও লোগো'],
+    'security'   => ['two_factor_settings.php','fa-shield-halved','Security (2FA)','নিরাপত্তা (2FA)'],
 ];
 ?>
 <!DOCTYPE html>

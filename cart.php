@@ -55,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id'])) {
 if (isset($_GET['action']) && $_GET['action'] === 'remove') {
     $key = $_GET['key'] ?? '';
     if ($key !== '') unset($_SESSION['cart'][$key]);
+    unset($_SESSION['applied_coupon']); // cart changed — any discount must be re-applied against the new subtotal
     header('Location: cart.php');
     exit;
 }
@@ -73,6 +74,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_qty') {
             $_SESSION['cart'][$key]['qty'] = $qty;
         }
     }
+    unset($_SESSION['applied_coupon']); // cart changed — any discount must be re-applied against the new subtotal
     header('Location: cart.php');
     exit;
 }

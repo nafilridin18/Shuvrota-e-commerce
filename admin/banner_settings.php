@@ -2,25 +2,36 @@
 require_once __DIR__ . '/../config/session.php';
 require_once 'auth_check.php';
 require_once '../config/database.php';
+require_once __DIR__ . '/../includes/upload_validator.php';
 
 $message = '';
 
 // Handle uploads (logo + banners)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
     $section_key = trim($_POST['section_key'] ?? '');
     $title       = trim($_POST['title'] ?? '');
 
     // ---- SITE LOGO ----
     if ($section_key === 'site_logo') {
         if (isset($_FILES['media_file']) && $_FILES['media_file']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = __DIR__ . '/../uploads/logo/';
-            if (!file_exists($upload_dir)) mkdir($upload_dir, 0777, true);
+            $check = validate_uploaded_file($_FILES['media_file'], UPLOAD_IMAGE_TYPES);
 
-            $ext = strtolower(pathinfo($_FILES['media_file']['name'], PATHINFO_EXTENSION));
-            $allowed = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'];
-            if (in_array($ext, $allowed)) {
-                $filename = 'logo_' . time() . '.' . $ext;
+            if ($check['valid']) {
+                $upload_dir = __DIR__ . '/../uploads/logo/';
+                if (!file_exists($upload_dir)) mkdir($upload_dir, 0777, true);
+
+                $filename = 'logo_' . time() . '.' . $check['ext'];
                 if (move_uploaded_file($_FILES['media_file']['tmp_name'], $upload_dir . $filename)) {
+                    // L-1: delete the previous logo file so old uploads don't pile up forever
+                    $oldLogo = $pdo->query("SELECT setting_value FROM settings WHERE setting_key='site_logo'")->fetchColumn();
+                    if (!empty($oldLogo)) {
+                        $oldPath = __DIR__ . '/../' . $oldLogo;
+                        if (is_file($oldPath) && !@unlink($oldPath)) {
+                            error_log("Could not delete old logo file: {$oldPath}");
+                        }
+                    }
+
                     $logo_path = 'uploads/logo/' . $filename;
                     $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('site_logo', ?)
                                    ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")
@@ -28,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $message = "লোগো সফলভাবে আপডেট হয়েছে!";
                 }
             } else {
-                $message = "ফাইল ফরম্যাট সাপোর্টেড নয়। ব্যবহার করুন: PNG, JPG, WEBP, SVG";
+                $message = $check['error'];
             }
         }
     }
@@ -42,15 +53,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $media_type = $existing['media_type'] ?? 'image';
 
         if (isset($_FILES['media_file']) && $_FILES['media_file']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = __DIR__ . '/../uploads/banners/';
-            if (!file_exists($upload_dir)) mkdir($upload_dir, 0777, true);
+            // Previously this section had NO extension or content check at
+            // all — any file type could be uploaded here.
+            $allowedTypes = UPLOAD_IMAGE_TYPES + UPLOAD_VIDEO_TYPES;
+            $check = validate_uploaded_file($_FILES['media_file'], $allowedTypes, 25 * 1024 * 1024);
 
-            $ext = strtolower(pathinfo($_FILES['media_file']['name'], PATHINFO_EXTENSION));
-            $filename = $section_key . '_' . time() . '.' . $ext;
+            if ($check['valid']) {
+                $upload_dir = __DIR__ . '/../uploads/banners/';
+                if (!file_exists($upload_dir)) mkdir($upload_dir, 0777, true);
 
-            if (move_uploaded_file($_FILES['media_file']['tmp_name'], $upload_dir . $filename)) {
-                $media_path = 'uploads/banners/' . $filename;
-                $media_type = in_array($ext, ['mp4', 'webm', 'ogg']) ? 'video' : 'image';
+                $filename = $section_key . '_' . time() . '.' . $check['ext'];
+
+                if (move_uploaded_file($_FILES['media_file']['tmp_name'], $upload_dir . $filename)) {
+                    // L-1: clean up the previous banner file for this section
+                    if (!empty($existing['media_path'])) {
+                        $oldPath = __DIR__ . '/../' . $existing['media_path'];
+                        if (is_file($oldPath) && !@unlink($oldPath)) {
+                            error_log("Could not delete old banner file: {$oldPath}");
+                        }
+                    }
+
+                    $media_path = 'uploads/banners/' . $filename;
+                    $media_type = isset(UPLOAD_VIDEO_TYPES[$check['ext']]) ? 'video' : 'image';
+                }
+            } else {
+                $message = $check['error'];
             }
         }
 
@@ -61,7 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("INSERT INTO site_banners (section_key, title, media_path, media_type) VALUES (?, ?, ?, ?)")
                 ->execute([$section_key, $title, $media_path, $media_type]);
         }
-        $message = "সফলভাবে আপডেট করা হয়েছে!";
+        if (!$message) {
+            $message = "সফলভাবে আপডেট করা হয়েছে!";
+        }
     }
 }
 
@@ -121,6 +150,7 @@ include 'includes/header.php';
                     </div>
                     <div class="col-md-9">
                         <form method="POST" enctype="multipart/form-data">
+                            <?= csrf_field() ?>
                             <input type="hidden" name="section_key" value="site_logo">
                             <label class="form-label">Upload new logo (square recommended, min 200×200 px)</label>
                             <input type="file" name="media_file" class="form-control" accept="image/*" required>
@@ -148,6 +178,7 @@ include 'includes/header.php';
             </div>
             <div class="admin-card-body">
                 <form method="POST" enctype="multipart/form-data">
+                            <?= csrf_field() ?>
                     <input type="hidden" name="section_key" value="hero_banner">
                     <div class="mb-3">
                         <label class="form-label">Banner Title (optional)</label>
@@ -186,6 +217,7 @@ include 'includes/header.php';
                         </div>
                         <div class="admin-card-body">
                             <form method="POST" enctype="multipart/form-data">
+                            <?= csrf_field() ?>
                                 <input type="hidden" name="section_key" value="<?= $s_key ?>">
                                 <div class="mb-3">
                                     <input type="file" name="media_file" class="form-control" accept="image/*">

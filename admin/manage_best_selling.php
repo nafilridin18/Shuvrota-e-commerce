@@ -4,6 +4,7 @@ require_once 'auth_check.php';
 require_once '../config/database.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_id'])) {
+    csrf_require();
     $p_id = (int)$_POST['toggle_id'];
     $current_val = (int)$_POST['current_val'];
     $new_val = $current_val ? 0 : 1;
@@ -77,6 +78,7 @@ include 'includes/header.php';
                                     </div>
                                 </div>
                                 <form method="POST" class="m-0">
+                                    <?= csrf_field() ?>
                                     <input type="hidden" name="toggle_id" value="<?= $s['id'] ?>">
                                     <input type="hidden" name="current_val" value="0">
                                     <button type="submit" class="admin-btn admin-btn-gold admin-btn-sm">
@@ -120,6 +122,7 @@ include 'includes/header.php';
                                     <div class="small text-muted mt-1">Stock: <?= $c['stock_quantity'] ?> · ৳<?= number_format($c['price'], 0) ?></div>
                                 </div>
                                 <form method="POST" class="m-0">
+                                    <?= csrf_field() ?>
                                     <input type="hidden" name="toggle_id" value="<?= $c['id'] ?>">
                                     <input type="hidden" name="current_val" value="1">
                                     <button type="submit" class="admin-btn admin-btn-sm" style="background:#fee; color:#c62828; border:1.5px solid #c62828;">

@@ -30,6 +30,7 @@ $message = '';
 $messageType = 'info';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
+    csrf_require();
     $new_status         = $_POST['status'];
     $new_payment_status = $_POST['payment_status'];
     $note               = trim($_POST['note'] ?? '');
@@ -316,6 +317,7 @@ include 'includes/header.php';
             </div>
             <div class="admin-card-body">
                 <form method="POST">
+                    <?= csrf_field() ?>
                     <div class="mb-3">
                         <label class="form-label" style="color: var(--maroon-700);">
                             <i class="fa-solid fa-money-bill me-1"></i> Payment Status

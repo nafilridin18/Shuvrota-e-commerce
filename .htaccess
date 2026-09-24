@@ -38,3 +38,11 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 <FilesMatch "^(schema\.sql|README\.md)$">
     Require all denied
 </FilesMatch>
+
+# Block any .git folder entirely — its files (config, HEAD, objects/…) don't
+# share one extension, so this needs a path-based rule rather than
+# FilesMatch. A .git folder should never be deployed here in the first
+# place, but this is a defense-in-depth backstop if one ever ends up here.
+# (DirectoryMatch is NOT valid inside .htaccess — only mod_rewrite is, since
+# .htaccess only allows directives permitted under AllowOverride.)
+RewriteRule (^|/)\.git(/|$) - [F,L]

@@ -200,6 +200,11 @@
 <script src="assets/js/main.js"></script>
 <script>
 /* =====================================================================
+   CSRF — read the token every AJAX POST below must send
+   ===================================================================== */
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+/* =====================================================================
    LANGUAGE — text toggle + placeholder swap
    ===================================================================== */
 
@@ -450,7 +455,7 @@ document.addEventListener('submit', function (e) {
     fetch('add_to_cart_ajax.php', {
         method: 'POST',
         body: formData,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': CSRF_TOKEN }
     })
         .then(r => r.json())
         .then(data => {
@@ -502,7 +507,7 @@ document.addEventListener('click', function (e) {
     fetch('toggle_wishlist_ajax.php', {
         method: 'POST',
         body: fd,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': CSRF_TOKEN }
     })
         .then(r => r.json())
         .then(data => {

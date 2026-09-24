@@ -2,11 +2,13 @@
 require_once __DIR__ . '/../config/session.php';
 require_once 'auth_check.php';
 require_once '../config/database.php';
+require_once __DIR__ . '/../includes/upload_validator.php';
 
 $message = '';
 $messageType = 'info';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
     $name            = trim($_POST['name']);
     $name_bn         = trim($_POST['name_bn'] ?? '');
     $price           = (float)$_POST['price'];
@@ -38,11 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $product_video = NULL;
     if (isset($_FILES['product_video']) && $_FILES['product_video']['error'] === UPLOAD_ERR_OK) {
-        $video_dir = __DIR__ . '/../uploads/videos/';
-        if (!file_exists($video_dir)) mkdir($video_dir, 0777, true);
-        $ext = strtolower(pathinfo($_FILES['product_video']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, ['mp4', 'webm', 'ogg', 'mov'])) {
-            $product_video = 'vid_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
+        $check = validate_uploaded_file($_FILES['product_video'], UPLOAD_VIDEO_TYPES, 50 * 1024 * 1024);
+        if ($check['valid']) {
+            $video_dir = __DIR__ . '/../uploads/videos/';
+            if (!file_exists($video_dir)) mkdir($video_dir, 0777, true);
+            $product_video = 'vid_' . time() . '_' . rand(1000, 9999) . '.' . $check['ext'];
             move_uploaded_file($_FILES['product_video']['tmp_name'], $video_dir . $product_video);
         }
     }
@@ -64,15 +66,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_FILES['images']) && !empty($_FILES['images']['name'][0])) {
             $upload_dir = __DIR__ . '/../uploads/';
             if (!file_exists($upload_dir)) mkdir($upload_dir, 0777, true);
-            $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
             $totalFiles = count($_FILES['images']['name']);
 
             for ($i = 0; $i < $totalFiles; $i++) {
                 if ($_FILES['images']['error'][$i] === UPLOAD_ERR_OK) {
-                    $ext = strtolower(pathinfo($_FILES['images']['name'][$i], PATHINFO_EXTENSION));
-                    if (in_array($ext, $allowed)) {
-                        $new_filename = time() . '_' . rand(1000, 9999) . '_' . $i . '.' . $ext;
-                        if (move_uploaded_file($_FILES['images']['tmp_name'][$i], $upload_dir . $new_filename)) {
+                    $oneFile = [
+                        'name'     => $_FILES['images']['name'][$i],
+                        'tmp_name' => $_FILES['images']['tmp_name'][$i],
+                        'size'     => $_FILES['images']['size'][$i],
+                    ];
+                    $check = validate_uploaded_file($oneFile, UPLOAD_IMAGE_TYPES);
+                    if ($check['valid']) {
+                        $new_filename = time() . '_' . rand(1000, 9999) . '_' . $i . '.' . $check['ext'];
+                        if (move_uploaded_file($oneFile['tmp_name'], $upload_dir . $new_filename)) {
                             $is_primary = ($i === 0) ? 1 : 0;
                             $img_stmt = $pdo->prepare("INSERT INTO product_images (product_id, image_path, is_primary) VALUES (?, ?, ?)");
                             $img_stmt->execute([$product_id, $new_filename, $is_primary]);
@@ -136,6 +142,7 @@ include 'includes/header.php';
     </div>
     <div class="admin-card-body">
         <form method="POST" enctype="multipart/form-data">
+            <?= csrf_field() ?>
 
             <div class="mb-3">
                 <label class="form-label">Product Name (English) *</label>

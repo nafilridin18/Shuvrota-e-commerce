@@ -1,11 +1,7 @@
 <?php
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 require_once __DIR__ . '/config/session.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 // Redirect to login if not logged in
 if (empty($_SESSION['customer_id'])) {
@@ -19,16 +15,28 @@ $errorMessage = '';
 
 // Handle Complaint / Comment Submit
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_complaint'])) {
+    csrf_require();
     $order_id = (int)$_POST['order_id'];
     $subject = trim($_POST['subject']);
     $desc = trim($_POST['description']);
     if(!empty($order_id) && !empty($subject)) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO complaints (customer_id, order_id, subject, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$customerId, $order_id, $subject, $desc]);
-            $successMessage = "আপনার মন্তব্য বা অভিযোগটি সফলভাবে পাঠানো হয়েছে।";
+            // H-1 fix: confirm this order actually belongs to the logged-in
+            // customer before accepting a complaint against it. Previously
+            // any order_id could be submitted, letting one customer file
+            // complaints that show up attached to someone else's order.
+            $ownStmt = $pdo->prepare("SELECT id FROM orders WHERE id = ? AND customer_id = ?");
+            $ownStmt->execute([$order_id, $customerId]);
+            if (!$ownStmt->fetch()) {
+                $errorMessage = "এই অর্ডারটি আপনার অ্যাকাউন্টের সাথে সম্পর্কিত নয়।";
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO complaints (customer_id, order_id, subject, description) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$customerId, $order_id, $subject, $desc]);
+                $successMessage = "আপনার মন্তব্য বা অভিযোগটি সফলভাবে পাঠানো হয়েছে।";
+            }
         } catch (Exception $e) {
-            $errorMessage = "সমস্যা হয়েছে: " . $e->getMessage();
+            error_log('submit_complaint error: ' . $e->getMessage());
+            $errorMessage = "সমস্যা হয়েছে। আবার চেষ্টা করুন।";
         }
     }
 }
@@ -44,6 +52,7 @@ try {
 
 // Handle Account Update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
+    csrf_require();
     $name       = trim($_POST['name'] ?? '');
     $phone      = trim($_POST['phone'] ?? '');
     $email      = trim($_POST['email'] ?? '');
@@ -93,16 +102,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                 $customer = $stmt->fetch();
             }
         } catch (Exception $e) {
-            $errorMessage = "আপডেট করতে সমস্যা হয়েছে: " . $e->getMessage();
+            error_log('update_profile error: ' . $e->getMessage());
+            $errorMessage = "আপডেট করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।";
         }
     }
 }
 
-// Fetch customer orders (matching by customer_id OR customer phone number)
+// Fetch customer orders (matched strictly by customer_id — see H-2 in the
+// security report: matching by phone as well let an attacker change their
+// own profile phone number to a guest customer's phone and pull up that
+// person's full order history, address and bill).
 try {
-    $custPhone = $customer['phone'] ?? $_SESSION['customer_phone'] ?? '';
-    $orderStmt = $pdo->prepare("SELECT * FROM orders WHERE customer_id = ? OR (guest_phone = ? AND guest_phone != '') OR (shipping_phone = ? AND shipping_phone != '') ORDER BY placed_at DESC");
-    $orderStmt->execute([$customerId, $custPhone, $custPhone]);
+    $orderStmt = $pdo->prepare("SELECT * FROM orders WHERE customer_id = ? ORDER BY placed_at DESC");
+    $orderStmt->execute([$customerId]);
     $orders = $orderStmt->fetchAll();
 } catch (Exception $e) {
     $orders = [];
@@ -170,6 +182,7 @@ include 'includes/header.php';
                     <div class="card border-0 shadow-sm rounded-3 p-4">
                         <h4 class="fw-bold mb-4"><i class="fa-solid fa-user-pen text-danger me-2"></i> Account Details & Address</h4>
                         <form action="account.php" method="POST">
+                            <?= csrf_field() ?>
                             <input type="hidden" name="update_profile" value="1">
                             <div class="row g-3">
                                 <div class="col-md-6">
@@ -249,6 +262,7 @@ include 'includes/header.php';
                                              <div class="modal-dialog">
                                                 <div class="modal-content">
                                                   <form method="POST">
+                                                  <?= csrf_field() ?>
                                                      <div class="modal-header">
                                                         <h5 class="modal-title">Order Comment/Issue #<?= htmlspecialchars($ord['order_number']) ?></h5>
                                                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

@@ -16,12 +16,18 @@ $errorMessage   = '';
    ===================================================================== */
 if (isset($_GET['add'])) {
     $product_id = (int)$_GET['add'];
-    $chk = $pdo->prepare("SELECT id FROM wishlists WHERE customer_id = ? AND product_id = ?");
-    $chk->execute([$customer_id, $product_id]);
 
-    if (!$chk->fetch()) {
-        $ins = $pdo->prepare("INSERT INTO wishlists (customer_id, product_id) VALUES (?, ?)");
-        $ins->execute([$customer_id, $product_id]);
+    $existsChk = $pdo->prepare("SELECT id FROM products WHERE id = ?");
+    $existsChk->execute([$product_id]);
+
+    if ($existsChk->fetch()) {
+        $chk = $pdo->prepare("SELECT id FROM wishlists WHERE customer_id = ? AND product_id = ?");
+        $chk->execute([$customer_id, $product_id]);
+
+        if (!$chk->fetch()) {
+            $ins = $pdo->prepare("INSERT INTO wishlists (customer_id, product_id) VALUES (?, ?)");
+            $ins->execute([$customer_id, $product_id]);
+        }
     }
     header("Location: wishlist.php");
     exit();

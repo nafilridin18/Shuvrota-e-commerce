@@ -231,7 +231,10 @@ The seed data in `schema.sql` creates one admin account:
 
 **Change this password immediately after your first login**, especially before deploying anywhere public — it's a well-known default sitting in a public-facing schema file.
 
-> If your database already contains a plaintext admin password from an older install, run `/admin/fix_admin_password_ONETIME.php` once in the browser to convert it to a bcrypt hash, then delete the file.
+**Two-factor login (email OTP) is ON by default** for this account. After you enter the password above, a 6-digit code is required to finish logging in.
+- Until you configure a real mailbox in `config/mail.php`, the app runs in **dev mode**: the code is written to `storage/dev_mail_log.txt` instead of being emailed, so you can log in and test locally without setting up SMTP first.
+- Fill in `config/mail.php` with a real mailbox (a cPanel email account, or a transactional service like Brevo/SendGrid) before deploying anywhere public — dev mode should never run on a live server.
+- You can turn 2FA on/off per admin account from **Admin > Security (2FA)** once logged in.
 
 ---
 
@@ -242,6 +245,8 @@ The seed data in `schema.sql` creates one admin account:
 - **Uploads:** product images/videos/logo/banners are saved under `/uploads`. Make sure this folder is writable by your web server (`chmod 755` or higher on Linux/macOS; not usually an issue on Windows/XAMPP).
 - **Hero video:** the homepage falls back to `assets/videos/heritage-craft.mp4` if no hero banner is set in the `site_banners` table via the admin panel. That folder is currently empty in the repo — either upload a hero video/image through the admin panel's banner manager, or drop an `.mp4` file at that path.
 - **AJAX endpoints:** the three new files (`add_to_cart_ajax.php`, `toggle_wishlist_ajax.php`, `apply_coupon_ajax.php`) must live in the project root alongside `index.php`. If you move them, update the fetch URLs in `includes/footer.php` and `checkout.php` accordingly.
+- **`.htaccess` depends on Apache (`mod_rewrite` + `mod_headers`).** The HTTPS redirect, security headers, and the block on executing PHP inside `uploads/` all rely on it. **Before going live, confirm your host actually runs Apache** (true for virtually all cPanel shared hosting; not true for Nginx or some LiteSpeed setups without `.htaccess` translation). If unsure, ask your host, or test by trying to download `schema.sql` directly from the live URL after deploying — it should return a 403, not the file itself. As a backstop, file uploads are also validated by their real content type in PHP itself (`includes/upload_validator.php`), not just by `.htaccess`, so a misconfigured server doesn't remove that layer of protection.
+- **`config/mail.php`** must be filled in with real SMTP credentials before going live — see the 2FA note in section 5. Without it, admin 2FA codes only get written to `storage/dev_mail_log.txt`, which is fine for local testing but not for production.
 
 ---
 

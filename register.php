@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config/session.php';
 require_once 'config/database.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 if (isset($_SESSION['customer_id'])) {
     header('Location: index.php');
@@ -10,29 +11,52 @@ if (isset($_SESSION['customer_id'])) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
+
     $name     = trim($_POST['name'] ?? '');
     $phone    = trim($_POST['phone'] ?? '');
     $email    = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
     if ($name !== '' && $phone !== '' && $password !== '') {
-        $chk = $pdo->prepare("SELECT id FROM customers WHERE phone = ?");
-        $chk->execute([$phone]);
-        if ($chk->fetch()) {
-            $error = "এই মোবাইল নম্বরটি দিয়ে ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে।";
+        // H-6: minimum password strength — previously a single-character
+        // password like "1" was accepted outright.
+        if (strlen($password) < 8 || !preg_match('/[A-Za-z]/', $password) || !preg_match('/[0-9]/', $password)) {
+            $error = "পাসওয়ার্ড কমপক্ষে ৮ ক্যারেক্টার হতে হবে এবং অক্ষর ও সংখ্যা উভয়ই থাকতে হবে। / Password must be at least 8 characters and include both letters and numbers.";
         } else {
-            $pass_hash = password_hash($password, PASSWORD_BCRYPT);
-            $stmt = $pdo->prepare("INSERT INTO customers (name, phone, email, password_hash, is_guest) VALUES (?, ?, ?, ?, 0)");
+            $chk = $pdo->prepare("SELECT id FROM customers WHERE phone = ?");
+            $chk->execute([$phone]);
 
-            if ($stmt->execute([$name, $phone, $email ?: null, $pass_hash])) {
-                $customer_id = $pdo->lastInsertId();
-                $_SESSION['customer_id']    = $customer_id;
-                $_SESSION['customer_name']  = $name;
-                $_SESSION['customer_phone'] = $phone;
-                header('Location: index.php');
-                exit;
+            // M-2: email uniqueness was never checked before insert, even
+            // though the schema has a UNIQUE constraint on email — a
+            // duplicate email crashed with an uncaught PDOException (HTTP 500).
+            $emailTaken = false;
+            if ($email !== '') {
+                $emailChk = $pdo->prepare("SELECT id FROM customers WHERE email = ?");
+                $emailChk->execute([$email]);
+                $emailTaken = (bool) $emailChk->fetch();
+            }
+
+            if ($chk->fetch()) {
+                $error = "এই মোবাইল নম্বরটি দিয়ে ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে।";
+            } elseif ($emailTaken) {
+                $error = "এই ইমেইলটি দিয়ে ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে। / This email is already registered.";
             } else {
-                $error = "অ্যাকাউন্ট তৈরিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।";
+                try {
+                    $pass_hash = password_hash($password, PASSWORD_BCRYPT);
+                    $stmt = $pdo->prepare("INSERT INTO customers (name, phone, email, password_hash, is_guest) VALUES (?, ?, ?, ?, 0)");
+                    $stmt->execute([$name, $phone, $email ?: null, $pass_hash]);
+
+                    $customer_id = $pdo->lastInsertId();
+                    $_SESSION['customer_id']    = $customer_id;
+                    $_SESSION['customer_name']  = $name;
+                    $_SESSION['customer_phone'] = $phone;
+                    header('Location: index.php');
+                    exit;
+                } catch (Exception $e) {
+                    error_log('register error: ' . $e->getMessage());
+                    $error = "অ্যাকাউন্ট তৈরিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।";
+                }
             }
         }
     } else {
@@ -85,6 +109,7 @@ include __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <form method="POST" autocomplete="on">
+                <?= csrf_field() ?>
                 <div class="auth-field">
                     <input type="text" name="name" id="regName" placeholder=" " required autocomplete="name">
                     <label for="regName">
@@ -113,7 +138,7 @@ include __DIR__ . '/includes/header.php';
                 </div>
 
                 <div class="auth-field">
-                    <input type="password" name="password" id="regPass" placeholder=" " required autocomplete="new-password">
+                    <input type="password" name="password" id="regPass" placeholder=" " required autocomplete="new-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" title="At least 8 characters, including letters and numbers">
                     <label for="regPass">
                         <span class="lang-bn">পাসওয়ার্ড *</span>
                         <span class="lang-en">Password *</span>
@@ -124,6 +149,10 @@ include __DIR__ . '/includes/header.php';
                         <i class="fa-regular fa-eye" id="toggleRegIcon"></i>
                     </button>
                 </div>
+                <p class="small text-muted mt-n2 mb-3">
+                    <span class="lang-bn">কমপক্ষে ৮ ক্যারেক্টার, অক্ষর ও সংখ্যা উভয়ই থাকতে হবে</span>
+                    <span class="lang-en">At least 8 characters, with both letters and numbers</span>
+                </p>
 
                 <button type="submit" class="auth-submit-btn">
                     <i class="fa-solid fa-user-plus me-2"></i>

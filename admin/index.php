@@ -225,7 +225,7 @@ $statuses = [
                             <a href="edit_product.php?id=<?= $p['id'] ?>" class="admin-btn admin-btn-outline admin-btn-sm">
                                 <i class="fa-solid fa-pen"></i>
                             </a>
-                            <a href="delete_product.php?id=<?= $p['id'] ?>"
+                            <a href="delete_product.php?id=<?= $p['id'] ?>&csrf_token=<?= urlencode(csrf_token()) ?>"
                                class="admin-btn admin-btn-sm" style="background:#fee; color:#c62828; border:1.5px solid #c62828;"
                                onclick="return confirm('মুছে ফেলতে চান?');">
                                 <i class="fa-solid fa-trash"></i>

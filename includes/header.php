@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/session.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/csrf.php';
 
 // Load customer session name/phone if only id is present
 if (isset($_SESSION['customer_id']) && empty($_SESSION['customer_name'])) {
@@ -49,6 +50,7 @@ $__site_name = $__settings['site_name'] ?? 'Shuvrota';
 <html lang="bn" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token(), ENT_QUOTES) ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $pageTitle ?? 'শুভ্রতা - Shuvrota' ?></title>
     <meta name="description" content="শুভ্রতা — হাতে বোনা শাড়ি, কুর্তি ও হস্তশিল্প। নারী কারিগরদের নিপুণ হাতে তৈরি ঐতিহ্যবাহী পোশাক।">

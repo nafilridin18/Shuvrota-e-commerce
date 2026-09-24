@@ -12,10 +12,18 @@
  *   { success:true, code, discount, subtotal, message }
  * JSON response (failure):
  *   { success:false, message }
+ *
+ * IMPORTANT: this only stores the coupon CODE in the session, not a
+ * pre-computed discount amount. checkout.php re-derives the discount
+ * from this code (via includes/coupon_helper.php) against whatever the
+ * cart actually contains at the moment the order is placed — never
+ * trusting a number computed earlier. See C-5 in the security report.
  */
 
 require_once __DIR__ . '/config/session.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/coupon_helper.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -24,6 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request']);
     exit;
 }
+
+csrf_require();
 
 $action = $_POST['action'] ?? 'apply';
 
@@ -41,11 +51,6 @@ if ($action === 'remove') {
    ===================================================================== */
 $coupon_code = strtoupper(trim($_POST['coupon_code'] ?? ''));
 
-if ($coupon_code === '') {
-    echo json_encode(['success' => false, 'message' => 'কুপন কোড লিখুন। / Please enter a coupon code.']);
-    exit;
-}
-
 /* ---- Recompute subtotal from the session — never trust the client ---- */
 $useDirect = !empty($_POST['is_direct']) && !empty($_SESSION['direct_cart']);
 $cart = $useDirect ? $_SESSION['direct_cart'] : ($_SESSION['cart'] ?? []);
@@ -55,76 +60,29 @@ foreach ($cart as $item) {
     $subtotal += (float)($item['price'] ?? 0) * (int)($item['qty'] ?? 1);
 }
 
-if ($subtotal <= 0) {
-    echo json_encode(['success' => false, 'message' => 'কার্টে কোনো পণ্য নেই। / Your cart is empty.']);
-    exit;
-}
-
 try {
-    $stmt = $pdo->prepare("SELECT * FROM coupons WHERE code = ? AND is_active = 1");
-    $stmt->execute([$coupon_code]);
-    $coupon = $stmt->fetch();
+    $result = validate_and_calculate_coupon($pdo, $coupon_code, $subtotal, $_SESSION['customer_id'] ?? null);
 
-    if (!$coupon) {
-        echo json_encode(['success' => false, 'message' => 'ভুল কুপন কোড! / Invalid coupon code.']);
+    if (!$result['valid']) {
+        echo json_encode(['success' => false, 'message' => $result['message']]);
         exit;
     }
 
-    /* ---- Date window ---- */
-    if (!empty($coupon['starts_at']) && strtotime($coupon['starts_at']) > time()) {
-        echo json_encode(['success' => false, 'message' => 'এই কুপন এখনো সক্রিয় হয়নি।']);
-        exit;
-    }
-    if (!empty($coupon['expires_at']) && strtotime($coupon['expires_at']) < time()) {
-        echo json_encode(['success' => false, 'message' => 'এই কুপনের মেয়াদ শেষ হয়ে গেছে।']);
-        exit;
-    }
-
-    /* ---- Usage limit ---- */
-    if (!empty($coupon['usage_limit']) && (int)$coupon['used_count'] >= (int)$coupon['usage_limit']) {
-        echo json_encode(['success' => false, 'message' => 'এই কুপনটি ইতিমধ্যে ব্যবহৃত হয়েছে।']);
-        exit;
-    }
-
-    /* ---- Minimum order ---- */
-    $min_order = (float)($coupon['min_order_amount'] ?? 0);
-    if ($subtotal < $min_order) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'এই কুপনের জন্য সর্বনিম্ন অর্ডার ৳ ' . number_format($min_order, 2) . ' হতে হবে।'
-        ]);
-        exit;
-    }
-
-    /* ---- Compute discount ---- */
-    $type  = $coupon['type'] ?? 'percentage';
-    $value = (float)($coupon['value'] ?? 0);
-
-    $discount = ($type === 'percentage') ? ($subtotal * $value / 100) : $value;
-
-    if (!empty($coupon['max_discount_amount']) && $discount > (float)$coupon['max_discount_amount']) {
-        $discount = (float)$coupon['max_discount_amount'];
-    }
-    if ($discount > $subtotal) {
-        $discount = $subtotal;
-    }
-    $discount = round($discount, 2);
-
-    /* ---- Persist to session (order placement reads this) ---- */
+    // Only the CODE is persisted — the discount is always recalculated
+    // fresh, both here and again at order-placement time.
     $_SESSION['applied_coupon'] = [
-        'id'       => (int)$coupon['id'],
-        'code'     => $coupon['code'],
-        'discount' => $discount,
+        'code' => $result['coupon']['code'],
     ];
 
     echo json_encode([
         'success'  => true,
-        'code'     => $coupon['code'],
-        'discount' => $discount,
+        'code'     => $result['coupon']['code'],
+        'discount' => $result['discount'],
         'subtotal' => round($subtotal, 2),
-        'message'  => 'কুপন সফলভাবে প্রয়োগ হয়েছে! ৳' . number_format($discount, 2) . ' সঞ্চয় হয়েছে।',
+        'message'  => $result['message'],
     ]);
 } catch (Exception $e) {
     http_response_code(500);
+    error_log('apply_coupon_ajax error: ' . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Server error']);
 }
