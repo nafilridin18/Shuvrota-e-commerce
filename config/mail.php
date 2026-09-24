@@ -20,8 +20,8 @@
 define('MAIL_SMTP_HOST', 'smtp.example.com');       // <-- e.g. mail.shuvrota.com or smtp.brevo.com
 define('MAIL_SMTP_PORT', 587);                       // 587 = STARTTLS (recommended), 465 = SSL
 define('MAIL_SMTP_ENCRYPTION', 'tls');               // 'tls' for port 587, 'ssl' for port 465
-define('MAIL_SMTP_USERNAME', 'you@example.com');     // <-- your real mailbox address
-define('MAIL_SMTP_PASSWORD', 'PUT_THE_REAL_MAILBOX_PASSWORD_HERE');
+define('MAIL_SMTP_USERNAME', '');     // <-- your real mailbox address
+define('MAIL_SMTP_PASSWORD', '');
 define('MAIL_FROM_ADDRESS', 'no-reply@shuvrota.com'); // <-- shown as the "From" address
 define('MAIL_FROM_NAME', 'Shuvrota Admin Security');
 

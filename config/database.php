@@ -9,7 +9,7 @@ $isLocal = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1'], t
 
 if ($isLocal) {
     $host = '127.0.0.1';
-    $port = '3307'; // XAMPP Control Panel অনুযায়ী Port 3307 সেট করা হয়েছে
+    $port = '3306'; // XAMPP Control Panel অনুযায়ী Port 3307 সেট করা হয়েছে
     $db   = 'shuvrota_db';
     $user = 'root';
     $pass = ''; // সাধারণত ফাঁকা থাকে, কাজ না করলে 'root' ট্রাই করো
